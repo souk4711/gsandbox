@@ -21,8 +21,10 @@ func newGsandboxCommand(gitCommit string, builtTime int64) *cobra.Command {
 		Short: "A sandbox for Linux which can be used to run untrusted programs",
 	}
 
+	rootCommand.SilenceErrors = true
 	rootCommand.CompletionOptions.DisableDefaultCmd = true
 	rootCommand.AddCommand(newVersionCommand(gitCommit, builtTime))
+	rootCommand.AddCommand(newRunCommand())
 
 	return rootCommand
 }

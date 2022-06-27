@@ -16,6 +16,7 @@ test:
 	go test
 
 build:
+	go mod tidy
 	go build -ldflags "$(LDFLAGS)" -o ./bin/gsandbox ./cmd/gsandbox/
 
 clean:
