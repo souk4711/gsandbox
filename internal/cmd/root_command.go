@@ -7,15 +7,15 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func Execute(gitCommit string, builtTime int64) {
-	var command = newGsandboxCommand(gitCommit, builtTime)
+func Execute() {
+	var command = newGsandboxCommand()
 	if err := command.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
 
-func newGsandboxCommand(gitCommit string, builtTime int64) *cobra.Command {
+func newGsandboxCommand() *cobra.Command {
 	var rootCommand = &cobra.Command{
 		Use:   "gsandbox",
 		Short: "A sandbox for Linux which can be used to run untrusted programs",
@@ -23,7 +23,7 @@ func newGsandboxCommand(gitCommit string, builtTime int64) *cobra.Command {
 
 	rootCommand.SilenceErrors = true
 	rootCommand.CompletionOptions.DisableDefaultCmd = true
-	rootCommand.AddCommand(newVersionCommand(gitCommit, builtTime))
+	rootCommand.AddCommand(newVersionCommand())
 	rootCommand.AddCommand(newRunCommand())
 
 	return rootCommand
