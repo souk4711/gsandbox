@@ -9,20 +9,37 @@ import (
 )
 
 type Executor struct {
+	// Prog is the path of the command to run
 	Prog string
+
+	// Args holds command line arguments
 	Args []string
 
+	// Limits specifies resource limtis
+	Limits
+
+	// Result contains information about an exited command, available after a call to Run
+	*Result
+
+	//
 	cmd *exec.Cmd
-	res *Result
 }
 
-func (e *Executor) Run() *Result {
+func (e *Executor) Run() {
 	e.setupCmdProg()
 	e.setupCmdStream()
 	e.setupCmdNamespace()
-	e.run()
 
-	return e.res
+	if err := e.setupRlimit(); err != nil {
+		e.Result = &Result{
+			Status:   StatusSetupFailure,
+			Reason:   err.Error(),
+			ExitCode: -1,
+		}
+		return
+	}
+
+	e.run()
 }
 
 func (e *Executor) setupCmdProg() {
@@ -60,6 +77,45 @@ func (e *Executor) setupCmdNamespace() {
 	}
 }
 
+func (e *Executor) setupRlimit() error {
+	if lim := e.Limits.rlimitAS; lim != nil {
+		var rlim = &syscall.Rlimit{Cur: lim.Value, Max: lim.Value}
+		if err := syscall.Setrlimit(syscall.RLIMIT_AS, rlim); err != nil {
+			return fmt.Errorf("rlimit: as: %s", err.Error())
+		}
+	}
+
+	if lim := e.Limits.rlimitCPU; lim != nil {
+		var rlim = &syscall.Rlimit{Cur: lim.Value, Max: lim.Value}
+		if err := syscall.Setrlimit(syscall.RLIMIT_CPU, rlim); err != nil {
+			return fmt.Errorf("rlimit: cpu: %s", err.Error())
+		}
+	}
+
+	if lim := e.Limits.rlimitCORE; lim != nil {
+		var rlim = &syscall.Rlimit{Cur: lim.Value, Max: lim.Value}
+		if err := syscall.Setrlimit(syscall.RLIMIT_CORE, rlim); err != nil {
+			return fmt.Errorf("rlimit: core: %s", err.Error())
+		}
+	}
+
+	if lim := e.Limits.rlimitFSIZE; lim != nil {
+		var rlim = &syscall.Rlimit{Cur: lim.Value, Max: lim.Value}
+		if err := syscall.Setrlimit(syscall.RLIMIT_FSIZE, rlim); err != nil {
+			return fmt.Errorf("rlimit: fsize: %s", err.Error())
+		}
+	}
+
+	if lim := e.Limits.rlimitNOFILE; lim != nil {
+		var rlim = &syscall.Rlimit{Cur: lim.Value, Max: lim.Value}
+		if err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, rlim); err != nil {
+			return fmt.Errorf("rlimit: nofile: %s", err.Error())
+		}
+	}
+
+	return nil
+}
+
 func (e *Executor) run() {
 	var status Status
 	var reason string
@@ -93,7 +149,7 @@ func (e *Executor) run() {
 		if w, ok := w.(syscall.WaitStatus); ok {
 			if w.Signaled() {
 				switch w.Signal() {
-				case syscall.SIGXCPU:
+				case syscall.SIGXCPU, syscall.SIGKILL:
 					status = StatusTimeLimitExceeded
 				case syscall.SIGXFSZ:
 					status = StatusOutputLimitExceeded
@@ -114,7 +170,7 @@ func (e *Executor) run() {
 		}
 	}
 
-	e.res = &Result{
+	e.Result = &Result{
 		Status:     status,
 		Reason:     reason,
 		ExitCode:   exitCode,

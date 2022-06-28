@@ -10,17 +10,18 @@ func _() {
 	var x [1]struct{}
 	_ = x[StatusUnset-0]
 	_ = x[StatusOK-1]
-	_ = x[StatusTimeLimitExceeded-2]
-	_ = x[StatusMemoryLimitExceeded-3]
-	_ = x[StatusOutputLimitExceeded-4]
-	_ = x[StatusViolation-5]
-	_ = x[StatusSignaled-6]
-	_ = x[StatusExitFailure-7]
+	_ = x[StatusSetupFailure-2]
+	_ = x[StatusTimeLimitExceeded-3]
+	_ = x[StatusMemoryLimitExceeded-4]
+	_ = x[StatusOutputLimitExceeded-5]
+	_ = x[StatusViolation-6]
+	_ = x[StatusSignaled-7]
+	_ = x[StatusExitFailure-8]
 }
 
-const _Status_name = "unsetoktime limit execeededmemory limit exceededoutput limit exceededsyscall violationterminated with a signalexit with nonzero code"
+const _Status_name = "unsetoksandbox setup failuretime limit execeededmemory limit exceededoutput limit exceededsyscall violationterminated with a signalexit with nonzero code"
 
-var _Status_index = [...]uint8{0, 5, 7, 27, 48, 69, 86, 110, 132}
+var _Status_index = [...]uint8{0, 5, 7, 28, 48, 69, 90, 107, 131, 153}
 
 func (i Status) String() string {
 	if i < 0 || i >= Status(len(_Status_index)-1) {

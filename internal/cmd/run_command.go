@@ -15,8 +15,8 @@ func newRunCommand() *cobra.Command {
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
 			var executor = &gsandbox.Executor{Prog: args[0], Args: args[1:]}
-			var result = executor.Run()
-			fmt.Print(result.Info())
+			executor.Run()
+			fmt.Print(executor.Result.Info())
 		},
 	}
 
