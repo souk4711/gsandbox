@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	version = &Version{
+	version = Version{
 		Name:      "Gsandbox",
 		Number:    "0.0.1",
 		GoVersion: runtime.Version(),
@@ -385,11 +385,12 @@ var (
 	seccompSyscallsAllowlist4Gsandbox = []string{
 		"arch_prctl",
 		"clone",
+		"ptrace",
 	}
 )
 
 func GetVersion() *Version {
-	return version
+	return &version
 }
 
 // Since Golang heavily uses OS-level threads to power its goroutine scheduling. There
@@ -397,53 +398,60 @@ func GetVersion() *Version {
 // parent process, then inherits it.
 //
 // Plz see https://stackoverflow.com/questions/28370646/how-do-i-fork-a-go-process
-func Run(prog string, args []string, policyFilePath string, limits *Limits) (*Result, error) {
-	policy, err := runBuildPolicyFromPath(policyFilePath)
-	if err != nil {
+func Run(prog string, args []string, policyFilePath string, limits Limits) (*Executor, error) {
+	var policy Policy
+	if err := runBuildPolicyFromPath(policyFilePath, &policy); err != nil {
 		return nil, err
 	}
 
-	seccompPolicy, err := runBuildSeccompPolicy(policy)
-	if err != nil {
+	var executor = Executor{Prog: prog, Args: args}
+	if err := runSetExecutorLimits(&executor, policy, limits); err != nil {
+		return nil, err
+	}
+	if err := runSetExecutorSeccompPolicy(&executor, policy); err != nil {
 		return nil, err
 	}
 
-	var e = &Executor{Prog: prog, Args: args, SeccompPolicy: seccompPolicy}
-	if err := mergo.Merge(&e.Limits, policy.Limits); err != nil {
-		return nil, err
-	}
-	if err := mergo.Merge(&e.Limits, *limits); err != nil {
-		return nil, err
-	}
-
-	return e.Run(), nil
+	executor.Run()
+	return &executor, nil
 }
 
-func runBuildPolicyFromPath(policyFilePath string) (*Policy, error) {
-	var policyData *[]byte
+func runBuildPolicyFromPath(policyFilePath string, policy *Policy) error {
+	var policyData []byte
 	if policyFilePath != "" {
 		data, err := os.ReadFile(policyFilePath)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
-		policyData = &data
+		policyData = data
 	} else {
-		policyData = &defaultPolicyData
+		policyData = defaultPolicyData
 	}
 
-	var policy = &Policy{}
-	if err := json.Unmarshal(*policyData, policy); err != nil {
-		return nil, err
+	if err := json.Unmarshal(policyData, policy); err != nil {
+		return err
 	}
 
-	return policy, nil
+	return nil
 }
 
-func runBuildSeccompPolicy(_ *Policy) (*seccomp.Policy, error) {
+func runSetExecutorLimits(executor *Executor, policy Policy, limits Limits) error {
+	executor.Limits = &Limits{}
+
+	if err := mergo.Merge(executor.Limits, policy.Limits); err != nil {
+		return err
+	}
+	if err := mergo.Merge(executor.Limits, limits); err != nil {
+		return err
+	}
+	return nil
+}
+
+func runSetExecutorSeccompPolicy(executor *Executor, _ Policy) error {
 	var arch, err = arch.GetInfo("")
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var syscallsAllowList = append(seccompSyscallsAllowlist, seccompSyscallsAllowlist4Gsandbox...)
@@ -454,10 +462,9 @@ func runBuildSeccompPolicy(_ *Policy) (*seccomp.Policy, error) {
 		}
 	}
 
-	var seccompPolicy = &seccomp.Policy{
+	executor.SeccompPolicy = &seccomp.Policy{
 		DefaultAction: seccomp.ActionErrno,
 		Syscalls:      []seccomp.SyscallGroup{{Action: seccomp.ActionAllow, Names: syscalls}},
 	}
-
-	return seccompPolicy, nil
+	return nil
 }

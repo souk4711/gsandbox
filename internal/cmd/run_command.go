@@ -19,7 +19,7 @@ func newRunCommand() *cobra.Command {
 	var limitFSIZE string
 	var limitNOFILE string
 
-	var buildLimits = func(limits *gsandbox.Limits) error {
+	var setLimits = func(limits *gsandbox.Limits) error {
 		if limitAS != "" {
 			if value, err := strconv.ParseUint(limitAS, 10, 64); err != nil {
 				return err
@@ -68,17 +68,17 @@ func newRunCommand() *cobra.Command {
 		Short: "Run a program in a sandbox",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var limits = &gsandbox.Limits{}
-			if err := buildLimits(limits); err != nil {
+			var limits gsandbox.Limits
+			if err := setLimits(&limits); err != nil {
 				return err
 			}
 
-			result, err := gsandbox.Run(args[0], args[1:], policyFilePath, limits)
+			executor, err := gsandbox.Run(args[0], args[1:], policyFilePath, limits)
 			if err != nil {
 				return err
 			}
 
-			resultData, err := json.Marshal(&result)
+			resultData, err := json.Marshal(&executor.Result)
 			if err != nil {
 				return err
 			}

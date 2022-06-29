@@ -18,36 +18,41 @@ type Executor struct {
 	Args []string
 
 	// Limits specifies resource limtis
-	Limits
+	*Limits
 
 	// SeccompPolicy specifies seccomp policy
 	SeccompPolicy *seccomp.Policy
 
-	//
+	// Result contains information about an exited comamnd, available after a call to Run
+	*Result
+
+	// cmd is the underlying comamnd, once started
 	cmd *exec.Cmd
 }
 
-func (e *Executor) Run() *Result {
+func (e *Executor) Run() {
 	e.setupCmdProg()
 	e.setupCmdNamespace()
 
 	if err := e.setupRlimit(); err != nil {
-		return &Result{
+		e.Result = &Result{
 			Status:   StatusSetupFailure,
 			Reason:   err.Error(),
 			ExitCode: -1,
 		}
+		return
 	}
 
 	if err := e.setupSeccomp(); err != nil {
-		return &Result{
+		e.Result = &Result{
 			Status:   StatusSetupFailure,
 			Reason:   err.Error(),
 			ExitCode: -1,
 		}
+		return
 	}
 
-	return e.run()
+	e.run()
 }
 
 func (e *Executor) setupCmdProg() {
@@ -79,10 +84,15 @@ func (e *Executor) setupCmdNamespace() {
 				Size:        1,
 			},
 		},
+		Ptrace: true,
 	}
 }
 
 func (e *Executor) setupRlimit() error {
+	if e.Limits == nil {
+		return nil
+	}
+
 	if lim := e.Limits.RlimitAS; lim != nil {
 		var rlim = &syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := syscall.Setrlimit(syscall.RLIMIT_AS, rlim); err != nil {
@@ -122,21 +132,23 @@ func (e *Executor) setupRlimit() error {
 }
 
 func (e *Executor) setupSeccomp() error {
-	if e.SeccompPolicy != nil {
-		var filter = seccomp.Filter{
-			NoNewPrivs: true,
-			Flag:       seccomp.FilterFlagTSync,
-			Policy:     *e.SeccompPolicy,
-		}
-		if err := seccomp.LoadFilter(filter); err != nil {
-			return fmt.Errorf("seccomp: %s", err.Error())
-		}
+	if e.SeccompPolicy == nil {
+		return nil
+	}
+
+	var filter = seccomp.Filter{
+		NoNewPrivs: true,
+		Flag:       seccomp.FilterFlagTSync,
+		Policy:     *e.SeccompPolicy,
+	}
+	if err := seccomp.LoadFilter(filter); err != nil {
+		return fmt.Errorf("seccomp: %s", err.Error())
 	}
 
 	return nil
 }
 
-func (e *Executor) run() *Result {
+func (e *Executor) run() {
 	var status Status
 	var reason string
 	var exitCode int
@@ -146,29 +158,10 @@ func (e *Executor) run() *Result {
 	var userTime time.Duration
 	var maxrss int64
 
-	startTime = time.Now()
-	var err = e.cmd.Run()
-	finishTime = time.Now()
-
-	if err != nil {
-		status = StatusExitFailure
-		reason = err.Error()
-		exitCode = e.cmd.ProcessState.ExitCode()
-	} else {
-		status = StatusOK
-		reason = ""
-		exitCode = e.cmd.ProcessState.ExitCode()
-	}
-
-	var stat = e.cmd.ProcessState
-	if stat != nil {
-		systemTime = stat.SystemTime()
-		userTime = stat.UserTime()
-
-		var w = stat.Sys()
-		if w, ok := w.(syscall.WaitStatus); ok {
-			if w.Signaled() {
-				switch w.Signal() {
+	var setResult = func(ws *syscall.WaitStatus, usage *syscall.Rusage) {
+		if ws != nil {
+			if ws.Signaled() {
+				switch ws.Signal() {
 				case syscall.SIGXCPU, syscall.SIGKILL:
 					status = StatusTimeLimitExceeded
 				case syscall.SIGXFSZ:
@@ -179,26 +172,51 @@ func (e *Executor) run() *Result {
 					status = StatusSignaled
 				}
 
-				reason = fmt.Sprintf("signal: %s", w.Signal())
-				exitCode = int(w.Signal())
+				reason = fmt.Sprintf("signal: %s", ws.Signal())
+				exitCode = int(ws.Signal())
 			}
 		}
 
-		var usage = stat.SysUsage()
-		if usage, ok := usage.(*syscall.Rusage); ok {
+		if usage != nil {
 			maxrss = usage.Maxrss
+		}
+
+		e.Result = &Result{
+			Status:     status,
+			Reason:     reason,
+			ExitCode:   exitCode,
+			StartTime:  startTime,
+			FinishTime: finishTime,
+			RealTime:   finishTime.Sub(startTime),
+			SystemTime: systemTime,
+			UserTime:   userTime,
+			Maxrss:     maxrss,
 		}
 	}
 
-	return &Result{
-		Status:     status,
-		Reason:     reason,
-		ExitCode:   exitCode,
-		StartTime:  startTime,
-		FinishTime: finishTime,
-		RealTime:   finishTime.Sub(startTime),
-		SystemTime: systemTime,
-		UserTime:   userTime,
-		Maxrss:     maxrss,
+	startTime = time.Now()
+	var err = e.cmd.Start()
+	if err != nil {
+		status = StatusExitFailure
+		reason = err.Error()
+		exitCode = e.cmd.ProcessState.ExitCode()
+		setResult(nil, nil)
+		return
 	}
+
+	var ws syscall.WaitStatus
+	var usage syscall.Rusage
+	if _, err = syscall.Wait4(e.cmd.Process.Pid, &ws, 0, &usage); err != nil {
+		status = StatusExitFailure
+		reason = err.Error()
+		exitCode = e.cmd.ProcessState.ExitCode()
+		setResult(nil, nil)
+		return
+	}
+
+	finishTime = time.Now()
+	status = StatusOK
+	reason = ""
+	exitCode = e.cmd.ProcessState.ExitCode()
+	setResult(&ws, &usage)
 }
