@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"time"
 
-	seccomp "github.com/elastic/go-seccomp-bpf"
+	"github.com/elastic/go-seccomp-bpf"
 )
 
 type Executor struct {
@@ -52,6 +52,9 @@ func (e *Executor) Run() *Result {
 
 func (e *Executor) setupCmdProg() {
 	e.cmd = exec.Command(e.Prog, e.Args...)
+	e.cmd.Stdin = os.Stdin
+	e.cmd.Stdout = os.Stdout
+	e.cmd.Stderr = os.Stderr
 }
 
 func (e *Executor) setupCmdNamespace() {
