@@ -404,12 +404,7 @@ func Run(prog string, args []string) (*Result, error) {
 
 	var seccompPolicy = &seccomp.Policy{
 		DefaultAction: seccomp.ActionErrno,
-		Syscalls: []seccomp.SyscallGroup{
-			{
-				Action: seccomp.ActionAllow,
-				Names:  syscalls,
-			},
-		},
+		Syscalls:      []seccomp.SyscallGroup{{Action: seccomp.ActionAllow, Names: syscalls}},
 	}
 
 	var e = &Executor{Prog: prog, Args: args, SeccompPolicy: seccompPolicy}

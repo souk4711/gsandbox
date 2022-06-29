@@ -27,3 +27,4 @@ build:
 clean:
 	go clean
 	rm -f ./bin/gsandbox
+	rm -f ./proc-metadata.json
