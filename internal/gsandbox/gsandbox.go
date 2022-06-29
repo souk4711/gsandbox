@@ -8,6 +8,7 @@ import (
 	"github.com/elastic/go-seccomp-bpf"
 	"github.com/elastic/go-seccomp-bpf/arch"
 	"github.com/goccy/go-json"
+	"github.com/imdario/mergo"
 )
 
 var (
@@ -396,7 +397,7 @@ func GetVersion() *Version {
 // parent process, then inherits it.
 //
 // Plz see https://stackoverflow.com/questions/28370646/how-do-i-fork-a-go-process
-func Run(prog string, args []string, policyFilePath string) (*Result, error) {
+func Run(prog string, args []string, policyFilePath string, limits *Limits) (*Result, error) {
 	policy, err := runBuildPolicyFromPath(policyFilePath)
 	if err != nil {
 		return nil, err
@@ -408,7 +409,12 @@ func Run(prog string, args []string, policyFilePath string) (*Result, error) {
 	}
 
 	var e = &Executor{Prog: prog, Args: args, SeccompPolicy: seccompPolicy}
-	e.Limits = policy.Limits
+	if err := mergo.Merge(&e.Limits, policy.Limits); err != nil {
+		return nil, err
+	}
+	if err := mergo.Merge(&e.Limits, *limits); err != nil {
+		return nil, err
+	}
 
 	return e.Run(), nil
 }
