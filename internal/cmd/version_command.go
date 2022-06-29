@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/souk4711/gsandbox"
+	"github.com/souk4711/gsandbox/internal/gsandbox"
 )
 
 func newVersionCommand() *cobra.Command {

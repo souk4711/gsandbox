@@ -18,38 +18,27 @@ type Executor struct {
 	// Limits specifies resource limtis
 	Limits
 
-	// Result contains information about an exited command, available after a call to Run
-	*Result
-
 	//
 	cmd *exec.Cmd
 }
 
-func (e *Executor) Run() {
+func (e *Executor) Run() *Result {
 	e.setupCmdProg()
-	e.setupCmdStream()
 	e.setupCmdNamespace()
 
 	if err := e.setupRlimit(); err != nil {
-		e.Result = &Result{
+		return &Result{
 			Status:   StatusSetupFailure,
 			Reason:   err.Error(),
 			ExitCode: -1,
 		}
-		return
 	}
 
-	e.run()
+	return e.run()
 }
 
 func (e *Executor) setupCmdProg() {
 	e.cmd = exec.Command(e.Prog, e.Args...)
-}
-
-func (e *Executor) setupCmdStream() {
-	e.cmd.Stdin = os.Stdin
-	e.cmd.Stdout = os.Stdout
-	e.cmd.Stderr = os.Stderr
 }
 
 func (e *Executor) setupCmdNamespace() {
@@ -116,7 +105,7 @@ func (e *Executor) setupRlimit() error {
 	return nil
 }
 
-func (e *Executor) run() {
+func (e *Executor) run() *Result {
 	var status Status
 	var reason string
 	var exitCode int
@@ -170,7 +159,7 @@ func (e *Executor) run() {
 		}
 	}
 
-	e.Result = &Result{
+	return &Result{
 		Status:     status,
 		Reason:     reason,
 		ExitCode:   exitCode,

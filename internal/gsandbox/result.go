@@ -32,13 +32,23 @@ type Result struct {
 }
 
 func (r *Result) Info() string {
+	var startTime = ""
+	if !r.StartTime.IsZero() {
+		startTime = r.StartTime.Format(time.ANSIC)
+	}
+
+	var finishTime = ""
+	if !r.FinishTime.IsZero() {
+		finishTime = r.FinishTime.Format(time.ANSIC)
+	}
+
 	return fmt.Sprintf(
 		resultInfoStringFormat,
 		r.Status,
 		r.Reason,
 		r.ExitCode,
-		r.StartTime.Format(time.ANSIC),
-		r.FinishTime.Format(time.ANSIC),
+		startTime,
+		finishTime,
 		r.RealTime,
 		r.SystemTime,
 		r.UserTime,

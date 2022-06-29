@@ -5,7 +5,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/souk4711/gsandbox"
+	"github.com/souk4711/gsandbox/internal/gsandbox"
 )
 
 func newRunCommand() *cobra.Command {
@@ -14,9 +14,8 @@ func newRunCommand() *cobra.Command {
 		Short: "Run a program in a sandbox",
 		Args:  cobra.MinimumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			var executor = &gsandbox.Executor{Prog: args[0], Args: args[1:]}
-			executor.Run()
-			fmt.Print(executor.Result.Info())
+			var result = gsandbox.Run(args[0], args[1:])
+			fmt.Print(result.Info())
 		},
 	}
 

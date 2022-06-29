@@ -3,15 +3,29 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"strconv"
 
 	"github.com/spf13/cobra"
+
+	"github.com/souk4711/gsandbox/internal/gsandbox"
 )
 
-func Execute() {
+func Execute(gitCommit string, builtTime string) {
+	setupGsandboxVersion(gitCommit, builtTime)
+
 	var command = newGsandboxCommand()
 	if err := command.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
+	}
+}
+
+func setupGsandboxVersion(gitCommit string, builtTime string) {
+	var version = gsandbox.GetVersion()
+	version.GitCommit = gitCommit
+
+	if builtTime, err := strconv.ParseInt(builtTime, 10, 64); err == nil {
+		version.BuiltTime = builtTime
 	}
 }
 

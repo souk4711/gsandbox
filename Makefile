@@ -19,10 +19,10 @@ tidy:
 	go mod tidy
 
 test:
-	go test
+	go test ./...
 
 build:
-	go build -ldflags "$(LDFLAGS)" -o ./bin/gsandbox ./cmd/gsandbox/
+	go build -ldflags "$(LDFLAGS)" -o ./bin/gsandbox
 
 clean:
 	go clean
