@@ -6,6 +6,8 @@ import (
 	"os/exec"
 	"syscall"
 	"time"
+
+	seccomp "github.com/elastic/go-seccomp-bpf"
 )
 
 type Executor struct {
@@ -18,6 +20,9 @@ type Executor struct {
 	// Limits specifies resource limtis
 	Limits
 
+	// SeccompPolicy specifies seccomp policy
+	SeccompPolicy *seccomp.Policy
+
 	//
 	cmd *exec.Cmd
 }
@@ -27,6 +32,14 @@ func (e *Executor) Run() *Result {
 	e.setupCmdNamespace()
 
 	if err := e.setupRlimit(); err != nil {
+		return &Result{
+			Status:   StatusSetupFailure,
+			Reason:   err.Error(),
+			ExitCode: -1,
+		}
+	}
+
+	if err := e.setupSeccomp(); err != nil {
 		return &Result{
 			Status:   StatusSetupFailure,
 			Reason:   err.Error(),
@@ -99,6 +112,21 @@ func (e *Executor) setupRlimit() error {
 		var rlim = &syscall.Rlimit{Cur: lim.Value, Max: lim.Value}
 		if err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, rlim); err != nil {
 			return fmt.Errorf("rlimit: nofile: %s", err.Error())
+		}
+	}
+
+	return nil
+}
+
+func (e *Executor) setupSeccomp() error {
+	if e.SeccompPolicy != nil {
+		var filter = seccomp.Filter{
+			NoNewPrivs: true,
+			Flag:       seccomp.FilterFlagTSync,
+			Policy:     *e.SeccompPolicy,
+		}
+		if err := seccomp.LoadFilter(filter); err != nil {
+			return fmt.Errorf("seccomp: %s", err.Error())
 		}
 	}
 
