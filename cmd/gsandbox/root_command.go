@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/souk4711/gsandbox/internal/gsandbox"
+	"github.com/souk4711/gsandbox"
 )
 
 func Execute(gitCommit string, builtTime string) {

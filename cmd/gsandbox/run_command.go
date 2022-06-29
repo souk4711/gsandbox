@@ -1,4 +1,4 @@
-package cmd
+package main
 
 import (
 	"os"
@@ -7,7 +7,7 @@ import (
 	"github.com/goccy/go-json"
 	"github.com/spf13/cobra"
 
-	"github.com/souk4711/gsandbox/internal/gsandbox"
+	"github.com/souk4711/gsandbox"
 )
 
 func newRunCommand() *cobra.Command {

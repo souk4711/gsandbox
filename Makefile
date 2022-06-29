@@ -22,7 +22,7 @@ test:
 	go test ./...
 
 build:
-	go build -ldflags "$(LDFLAGS)" -o ./bin/gsandbox
+	go build -ldflags "$(LDFLAGS)" -o ./bin/gsandbox ./cmd/gsandbox/
 
 clean:
 	go clean

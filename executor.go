@@ -7,7 +7,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/elastic/go-seccomp-bpf"
+	"github.com/souk4711/gsandbox/prlimit"
 )
 
 type Executor struct {
@@ -20,9 +20,6 @@ type Executor struct {
 	// Limits specifies resource limtis
 	*Limits
 
-	// SeccompPolicy specifies seccomp policy
-	SeccompPolicy *seccomp.Policy
-
 	// Result contains information about an exited comamnd, available after a call to Run
 	*Result
 
@@ -33,24 +30,6 @@ type Executor struct {
 func (e *Executor) Run() {
 	e.setupCmdProg()
 	e.setupCmdNamespace()
-
-	if err := e.setupRlimit(); err != nil {
-		e.Result = &Result{
-			Status:   StatusSetupFailure,
-			Reason:   err.Error(),
-			ExitCode: -1,
-		}
-		return
-	}
-
-	if err := e.setupSeccomp(); err != nil {
-		e.Result = &Result{
-			Status:   StatusSetupFailure,
-			Reason:   err.Error(),
-			ExitCode: -1,
-		}
-		return
-	}
 
 	e.run()
 }
@@ -88,61 +67,44 @@ func (e *Executor) setupCmdNamespace() {
 	}
 }
 
-func (e *Executor) setupRlimit() error {
+func (e *Executor) setupRlimit(pid int) error {
 	if e.Limits == nil {
 		return nil
 	}
 
 	if lim := e.Limits.RlimitAS; lim != nil {
-		var rlim = &syscall.Rlimit{Cur: *lim, Max: *lim}
-		if err := syscall.Setrlimit(syscall.RLIMIT_AS, rlim); err != nil {
+		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
+		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_AS, &rlim); err != nil {
 			return fmt.Errorf("rlimit: as: %s", err.Error())
 		}
 	}
 
 	if lim := e.Limits.RlimitCPU; lim != nil {
-		var rlim = &syscall.Rlimit{Cur: *lim, Max: *lim}
-		if err := syscall.Setrlimit(syscall.RLIMIT_CPU, rlim); err != nil {
+		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
+		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_CPU, &rlim); err != nil {
 			return fmt.Errorf("rlimit: cpu: %s", err.Error())
 		}
 	}
 
 	if lim := e.Limits.RlimitCORE; lim != nil {
-		var rlim = &syscall.Rlimit{Cur: *lim, Max: *lim}
-		if err := syscall.Setrlimit(syscall.RLIMIT_CORE, rlim); err != nil {
+		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
+		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_CORE, &rlim); err != nil {
 			return fmt.Errorf("rlimit: core: %s", err.Error())
 		}
 	}
 
 	if lim := e.Limits.RlimitFSIZE; lim != nil {
-		var rlim = &syscall.Rlimit{Cur: *lim, Max: *lim}
-		if err := syscall.Setrlimit(syscall.RLIMIT_FSIZE, rlim); err != nil {
+		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
+		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_FSIZE, &rlim); err != nil {
 			return fmt.Errorf("rlimit: fsize: %s", err.Error())
 		}
 	}
 
 	if lim := e.Limits.RlimitNOFILE; lim != nil {
-		var rlim = &syscall.Rlimit{Cur: *lim, Max: *lim}
-		if err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, rlim); err != nil {
+		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
+		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_NOFILE, &rlim); err != nil {
 			return fmt.Errorf("rlimit: nofile: %s", err.Error())
 		}
-	}
-
-	return nil
-}
-
-func (e *Executor) setupSeccomp() error {
-	if e.SeccompPolicy == nil {
-		return nil
-	}
-
-	var filter = seccomp.Filter{
-		NoNewPrivs: true,
-		Flag:       seccomp.FilterFlagTSync,
-		Policy:     *e.SeccompPolicy,
-	}
-	if err := seccomp.LoadFilter(filter); err != nil {
-		return fmt.Errorf("seccomp: %s", err.Error())
 	}
 
 	return nil
@@ -201,6 +163,15 @@ func (e *Executor) run() {
 		reason = err.Error()
 		exitCode = e.cmd.ProcessState.ExitCode()
 		setResult(nil, nil)
+		return
+	}
+
+	if err := e.setupRlimit(e.cmd.Process.Pid); err != nil {
+		e.Result = &Result{
+			Status:   StatusSetupFailure,
+			Reason:   err.Error(),
+			ExitCode: -1,
+		}
 		return
 	}
 
