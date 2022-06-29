@@ -10,14 +10,15 @@ import (
 )
 
 func newRunCommand() *cobra.Command {
-	var reportFile string
+	var policyFilePath string
+	var reportFilePath string
 
 	var runCommand = &cobra.Command{
 		Use:   "run [flags] -- PROGRAM [ARG...]",
 		Short: "Run a program in a sandbox",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			result, err := gsandbox.Run(args[0], args[1:])
+			result, err := gsandbox.Run(args[0], args[1:], policyFilePath)
 			if err != nil {
 				return err
 			}
@@ -27,7 +28,7 @@ func newRunCommand() *cobra.Command {
 				return err
 			}
 
-			if err := os.WriteFile(reportFile, resultData, 0644); err != nil {
+			if err := os.WriteFile(reportFilePath, resultData, 0644); err != nil {
 				return err
 			}
 
@@ -36,7 +37,8 @@ func newRunCommand() *cobra.Command {
 	}
 
 	runCommand.DisableFlagsInUseLine = true
-	runCommand.Flags().StringVarP(&reportFile, "reportFile", "", "proc-metadata.json", "Generate a JSON-formatted report at the specified location")
+	runCommand.Flags().StringVarP(&policyFilePath, "policy-file", "", "", "")
+	runCommand.Flags().StringVarP(&reportFilePath, "report-file", "", "proc-metadata.json", "Generate a JSON-formatted report at the specified location")
 
 	return runCommand
 }

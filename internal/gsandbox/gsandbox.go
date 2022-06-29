@@ -1,10 +1,13 @@
 package gsandbox
 
 import (
+	_ "embed"
+	"os"
 	"runtime"
 
 	"github.com/elastic/go-seccomp-bpf"
 	"github.com/elastic/go-seccomp-bpf/arch"
+	"github.com/goccy/go-json"
 )
 
 var (
@@ -15,6 +18,11 @@ var (
 		OS:        runtime.GOOS,
 		ARCH:      runtime.GOARCH,
 	}
+)
+
+var (
+	//go:embed embed/policy.json
+	defaultPolicyData []byte
 )
 
 var (
@@ -388,7 +396,45 @@ func GetVersion() *Version {
 // parent process, then inherits it.
 //
 // Plz see https://stackoverflow.com/questions/28370646/how-do-i-fork-a-go-process
-func Run(prog string, args []string) (*Result, error) {
+func Run(prog string, args []string, policyFilePath string) (*Result, error) {
+	policy, err := runBuildPolicyFromPath(policyFilePath)
+	if err != nil {
+		return nil, err
+	}
+
+	seccompPolicy, err := runBuildSeccompPolicy(policy)
+	if err != nil {
+		return nil, err
+	}
+
+	var e = &Executor{Prog: prog, Args: args, SeccompPolicy: seccompPolicy}
+	e.Limits = policy.Limits
+
+	return e.Run(), nil
+}
+
+func runBuildPolicyFromPath(policyFilePath string) (*Policy, error) {
+	var policyData *[]byte
+	if policyFilePath != "" {
+		data, err := os.ReadFile(policyFilePath)
+		if err != nil {
+			return nil, err
+		}
+
+		policyData = &data
+	} else {
+		policyData = &defaultPolicyData
+	}
+
+	var policy = &Policy{}
+	if err := json.Unmarshal(*policyData, policy); err != nil {
+		return nil, err
+	}
+
+	return policy, nil
+}
+
+func runBuildSeccompPolicy(_ *Policy) (*seccomp.Policy, error) {
 	var arch, err = arch.GetInfo("")
 	if err != nil {
 		return nil, err
@@ -407,6 +453,5 @@ func Run(prog string, args []string) (*Result, error) {
 		Syscalls:      []seccomp.SyscallGroup{{Action: seccomp.ActionAllow, Names: syscalls}},
 	}
 
-	var e = &Executor{Prog: prog, Args: args, SeccompPolicy: seccompPolicy}
-	return e.Run(), nil
+	return seccompPolicy, nil
 }

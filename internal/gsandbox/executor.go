@@ -83,36 +83,36 @@ func (e *Executor) setupCmdNamespace() {
 }
 
 func (e *Executor) setupRlimit() error {
-	if lim := e.Limits.rlimitAS; lim != nil {
-		var rlim = &syscall.Rlimit{Cur: lim.Value, Max: lim.Value}
+	if lim := e.Limits.RlimitAS; lim != nil {
+		var rlim = &syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := syscall.Setrlimit(syscall.RLIMIT_AS, rlim); err != nil {
 			return fmt.Errorf("rlimit: as: %s", err.Error())
 		}
 	}
 
-	if lim := e.Limits.rlimitCPU; lim != nil {
-		var rlim = &syscall.Rlimit{Cur: lim.Value, Max: lim.Value}
+	if lim := e.Limits.RlimitCPU; lim != nil {
+		var rlim = &syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := syscall.Setrlimit(syscall.RLIMIT_CPU, rlim); err != nil {
 			return fmt.Errorf("rlimit: cpu: %s", err.Error())
 		}
 	}
 
-	if lim := e.Limits.rlimitCORE; lim != nil {
-		var rlim = &syscall.Rlimit{Cur: lim.Value, Max: lim.Value}
+	if lim := e.Limits.RlimitCORE; lim != nil {
+		var rlim = &syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := syscall.Setrlimit(syscall.RLIMIT_CORE, rlim); err != nil {
 			return fmt.Errorf("rlimit: core: %s", err.Error())
 		}
 	}
 
-	if lim := e.Limits.rlimitFSIZE; lim != nil {
-		var rlim = &syscall.Rlimit{Cur: lim.Value, Max: lim.Value}
+	if lim := e.Limits.RlimitFSIZE; lim != nil {
+		var rlim = &syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := syscall.Setrlimit(syscall.RLIMIT_FSIZE, rlim); err != nil {
 			return fmt.Errorf("rlimit: fsize: %s", err.Error())
 		}
 	}
 
-	if lim := e.Limits.rlimitNOFILE; lim != nil {
-		var rlim = &syscall.Rlimit{Cur: lim.Value, Max: lim.Value}
+	if lim := e.Limits.RlimitNOFILE; lim != nil {
+		var rlim = &syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := syscall.Setrlimit(syscall.RLIMIT_NOFILE, rlim); err != nil {
 			return fmt.Errorf("rlimit: nofile: %s", err.Error())
 		}

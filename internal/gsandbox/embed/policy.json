@@ -1,0 +1,9 @@
+{
+  "limits": {
+    "as": null,
+    "core": null,
+    "cpu": null,
+    "fsize": null,
+    "nofile": null
+  }
+}
