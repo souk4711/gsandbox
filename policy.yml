@@ -36,7 +36,7 @@ syscalls:
   - chdir
   - chmod
   - chown
-  - chown3,
+  - chown32
   - clock_adjtime
   - clock_adjtime64
   - clock_getres

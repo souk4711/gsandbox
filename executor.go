@@ -178,18 +178,19 @@ func (e *Executor) run() {
 		} else if ws.Signaled() {
 			setResult(&ws, &rusage)
 			return
+		} else if ws.Stopped() {
+			_ = ws.Signal()
 		}
 
-		// Load register values
-		var ptraceSyscall = ptrace.PtraceSyscall{Pid: pid}
-		if err := ptraceSyscall.Load(); err != nil {
+		// Handle ptrace events
+		ptraceSyscall, err := ptrace.GetPtraceSyscall(pid)
+		if err != nil {
 			setResultWithSetupFailure(err)
 			return
 		}
 
 		if insyscall { // Syscall enter
 			insyscall = false
-
 			if _, ok := e.AllowedSyscalls[ptraceSyscall.Name]; !ok {
 				err := fmt.Errorf("syscall denied: %s", ptraceSyscall.Name)
 				setResultWithViolation(err)
@@ -199,8 +200,8 @@ func (e *Executor) run() {
 			insyscall = true
 		}
 
-		// Make the kernel stop the child process whenever a system call
-		// entry or exit is made
+		// Resume tracee execution. Make the kernel stop the child process whenever a
+		// system call entry or exit is made
 		if err := syscall.PtraceSyscall(pid, 0); err != nil {
 			err = fmt.Errorf("ptrace: %s", err.Error())
 			setResultWithSetupFailure(err)

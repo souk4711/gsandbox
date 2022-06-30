@@ -6,6 +6,7 @@ require (
 	github.com/goccy/go-json v0.9.7
 	github.com/seccomp/libseccomp-golang v0.10.0
 	github.com/spf13/cobra v1.5.0
+	golang.org/x/sys v0.0.0-20220627191245-f75cf1eec38b
 	gopkg.in/yaml.v3 v3.0.1
 )
 

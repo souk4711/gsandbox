@@ -20,7 +20,6 @@ func (s *Sandbox) Policy() *Policy {
 	if s.policy == nil {
 		_ = s.LoadPolicyFromData(defaultPolicyData)
 	}
-
 	return s.policy
 }
 
