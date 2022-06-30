@@ -1,4 +1,4 @@
-package main
+package cmd
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 )
 
 func Execute(gitCommit string, builtTime string) {
-	setupGsandboxVersion(gitCommit, builtTime)
+	setGsandboxVersion(gitCommit, builtTime)
 
 	var command = newGsandboxCommand()
 	if err := command.Execute(); err != nil {
@@ -20,7 +20,7 @@ func Execute(gitCommit string, builtTime string) {
 	}
 }
 
-func setupGsandboxVersion(gitCommit string, builtTime string) {
+func setGsandboxVersion(gitCommit string, builtTime string) {
 	var version = gsandbox.GetVersion()
 	version.GitCommit = gitCommit
 

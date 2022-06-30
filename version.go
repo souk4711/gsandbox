@@ -2,6 +2,7 @@ package gsandbox
 
 import (
 	"fmt"
+	"runtime"
 	"time"
 )
 
@@ -13,6 +14,16 @@ const (
 		"Git Commit:  %s\n" +
 		"Built:       %s\n" +
 		"OS/Arch:     %s/%s\n"
+)
+
+var (
+	version = Version{
+		Name:      "Gsandbox",
+		Number:    "0.0.1",
+		GoVersion: runtime.Version(),
+		OS:        runtime.GOOS,
+		ARCH:      runtime.GOARCH,
+	}
 )
 
 type Version struct {
@@ -40,4 +51,8 @@ func (v *Version) Info() string {
 		built,
 		v.OS, v.ARCH,
 	)
+}
+
+func GetVersion() *Version {
+	return &version
 }

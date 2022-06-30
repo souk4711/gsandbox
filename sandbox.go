@@ -3,80 +3,47 @@ package gsandbox
 import (
 	_ "embed"
 	"os"
-	"runtime"
 
-	"github.com/goccy/go-json"
-	"github.com/imdario/mergo"
+	"gopkg.in/yaml.v3"
 )
 
 var (
-	version = Version{
-		Name:      "Gsandbox",
-		Number:    "0.0.1",
-		GoVersion: runtime.Version(),
-		OS:        runtime.GOOS,
-		ARCH:      runtime.GOARCH,
-	}
-)
-
-var (
-	//go:embed embed/policy.json
+	//go:embed policy.yml
 	defaultPolicyData []byte
 )
 
-func GetVersion() *Version {
-	return &version
+type Sandbox struct {
+	policy *Policy
 }
 
-// Since Golang heavily uses OS-level threads to power its goroutine scheduling. There
-// is no easy way to set resource limit or seccomp filter in child process. Set it in
-// parent process, then inherits it.
-//
-// Plz see https://stackoverflow.com/questions/28370646/how-do-i-fork-a-go-process
-func Run(prog string, args []string, policyFilePath string, limits Limits) (*Executor, error) {
-	var policy Policy
-	if err := runBuildPolicyFromPath(policyFilePath, &policy); err != nil {
-		return nil, err
+func (s *Sandbox) Policy() *Policy {
+	if s.policy == nil {
+		_ = s.LoadPolicyFromData(defaultPolicyData)
 	}
 
-	var executor = Executor{Prog: prog, Args: args}
-	if err := runSetExecutorLimits(&executor, policy, limits); err != nil {
-		return nil, err
-	}
+	return s.policy
+}
 
+func (s *Sandbox) Run(prog string, args []string) *Executor {
+	var executor = Executor{Prog: prog, Args: args, Limits: &s.Policy().Limits}
 	executor.Run()
-	return &executor, nil
+	return &executor
 }
 
-func runBuildPolicyFromPath(policyFilePath string, policy *Policy) error {
-	var policyData []byte
-	if policyFilePath != "" {
-		data, err := os.ReadFile(policyFilePath)
-		if err != nil {
-			return err
-		}
-
-		policyData = data
-	} else {
-		policyData = defaultPolicyData
+func (s *Sandbox) LoadPolicyFromFile(filePath string) error {
+	var data, err = os.ReadFile(filePath)
+	if err != nil {
+		return err
 	}
 
-	if err := json.Unmarshal(policyData, policy); err != nil {
+	if err := s.LoadPolicyFromData(data); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func runSetExecutorLimits(executor *Executor, policy Policy, limits Limits) error {
-	executor.Limits = &Limits{}
-
-	if err := mergo.Merge(executor.Limits, policy.Limits); err != nil {
-		return err
-	}
-	if err := mergo.Merge(executor.Limits, limits); err != nil {
-		return err
-	}
-
-	return nil
+func (s *Sandbox) LoadPolicyFromData(data []byte) error {
+	s.policy = &Policy{}
+	return yaml.Unmarshal(data, s.policy)
 }

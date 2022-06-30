@@ -1,5 +1,5 @@
 package gsandbox
 
 type Policy struct {
-	Limits `json:"limits"`
+	Limits `yaml:"limits"`
 }

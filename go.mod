@@ -4,8 +4,8 @@ go 1.18
 
 require (
 	github.com/goccy/go-json v0.9.7
-	github.com/imdario/mergo v0.3.13
 	github.com/spf13/cobra v1.5.0
+	gopkg.in/yaml.v3 v3.0.1
 )
 
 require (
