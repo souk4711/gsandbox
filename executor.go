@@ -7,9 +7,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/seccomp/libseccomp-golang"
-
 	"github.com/souk4711/gsandbox/pkg/prlimit"
+	"github.com/souk4711/gsandbox/pkg/ptrace"
 )
 
 type Executor struct {
@@ -25,7 +24,7 @@ type Executor struct {
 	// AllowedSyscalls specifies the calls that are allowed
 	AllowedSyscalls map[string]struct{}
 
-	// Result contains information about an exited comamnd, available after a call to Run
+	// Result contains information about an exited comamnd, available after a call to #Run
 	*Result
 
 	// cmd is the underlying comamnd, once started
@@ -169,7 +168,6 @@ func (e *Executor) run() {
 
 	var ws syscall.WaitStatus
 	var rusage syscall.Rusage
-	var regs syscall.PtraceRegs
 	var insyscall = false
 	for {
 		// Check wait status
@@ -182,17 +180,9 @@ func (e *Executor) run() {
 			return
 		}
 
-		// Read register values
-		if err := syscall.PtraceGetRegs(pid, &regs); err != nil {
-			err = fmt.Errorf("ptrace: %s", err.Error())
-			setResultWithSetupFailure(err)
-			return
-		}
-
-		// Extract syscall name from regs
-		syscallName, err := seccomp.ScmpSyscall(regs.Orig_rax).GetName()
-		if err != nil {
-			err = fmt.Errorf("ptrace: %s", err.Error())
+		// Load register values
+		var ptraceSyscall = ptrace.PtraceSyscall{Pid: pid}
+		if err := ptraceSyscall.Load(); err != nil {
 			setResultWithSetupFailure(err)
 			return
 		}
@@ -200,8 +190,8 @@ func (e *Executor) run() {
 		if insyscall { // Syscall enter
 			insyscall = false
 
-			if _, ok := e.AllowedSyscalls[syscallName]; !ok {
-				err = fmt.Errorf("syscall denied: %s", syscallName)
+			if _, ok := e.AllowedSyscalls[ptraceSyscall.Name]; !ok {
+				err := fmt.Errorf("syscall denied: %s", ptraceSyscall.Name)
 				setResultWithViolation(err)
 				return
 			}
