@@ -183,7 +183,7 @@ func (e *Executor) run() {
 		}
 
 		// Handle ptrace events
-		ptraceSyscall, err := ptrace.GetPtraceSyscall(pid)
+		ptraceSyscall, err := ptrace.GetSyscall(pid)
 		if err != nil {
 			setResultWithSetupFailure(err)
 			return

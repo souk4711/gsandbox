@@ -7,25 +7,34 @@ import (
 	"github.com/seccomp/libseccomp-golang"
 )
 
-type PtraceSyscall struct {
-	Pid int
-
-	Regs syscall.PtraceRegs
+type Syscall struct {
+	Pid  int
 	Name string
+
+	regs      syscall.PtraceRegs
+	signature SyscallSignature
 }
 
-func GetPtraceSyscall(pid int) (*PtraceSyscall, error) {
+func GetSyscall(pid int) (*Syscall, error) {
 	var regs = syscall.PtraceRegs{}
 	if err := syscall.PtraceGetRegs(pid, &regs); err != nil {
 		return nil, fmt.Errorf("ptrace: %s", err.Error())
 	}
 
-	name, err := seccomp.ScmpSyscall(regs.Orig_rax).GetName()
+	var nr = uint(regs.Orig_rax)
+	var name, err = seccomp.ScmpSyscall(nr).GetName()
 	if err != nil {
 		return nil, fmt.Errorf("ptrace: %s", err.Error())
 	}
 
-	return &PtraceSyscall{
-		Pid: pid, Regs: regs, Name: name,
+	var signature SyscallSignature
+	if sig, ok := syscallTable[nr]; ok {
+		signature = sig
+	} else {
+		signature = makeSyscallSignature(name)
+	}
+
+	return &Syscall{
+		Pid: pid, Name: name, regs: regs, signature: signature,
 	}, nil
 }

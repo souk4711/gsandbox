@@ -7,8 +7,7 @@ import (
 // Linux System Call Table
 //
 // Plz see https://chromium.googlesource.com/chromiumos/docs/+/HEAD/constants/syscalls.md#tables
-// var syscallTable = map[int]SyscallSignature{
-var _ = map[int]SyscallSignature{
+var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_READ:                   makeSyscallSignature("read", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_WRITE:                  makeSyscallSignature("write", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_OPEN:                   makeSyscallSignature("open", ParamTypePath, ParamTypeAny, ParamTypeAny),
