@@ -25,7 +25,17 @@ func (s *Sandbox) Policy() *Policy {
 }
 
 func (s *Sandbox) Run(prog string, args []string) *Executor {
-	var executor = Executor{Prog: prog, Args: args, Limits: &s.Policy().Limits}
+	var executor = Executor{
+		Prog:            prog,
+		Args:            args,
+		Limits:          s.Policy().Limits,
+		AllowedSyscalls: make(map[string]struct{}),
+	}
+
+	for _, syscall := range s.Policy().AllowedSyscalls {
+		executor.AllowedSyscalls[syscall] = struct{}{}
+	}
+
 	executor.Run()
 	return &executor
 }

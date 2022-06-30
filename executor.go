@@ -7,6 +7,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/seccomp/libseccomp-golang"
+
 	"github.com/souk4711/gsandbox/pkg/prlimit"
 )
 
@@ -18,7 +20,10 @@ type Executor struct {
 	Args []string
 
 	// Limits specifies resource limtis
-	*Limits
+	Limits
+
+	// AllowedSyscalls specifies the calls that are allowed
+	AllowedSyscalls map[string]struct{}
 
 	// Result contains information about an exited comamnd, available after a call to Run
 	*Result
@@ -115,13 +120,6 @@ func (e *Executor) run() {
 		}
 	}
 
-	var setResultWithExecFailure = func(ws *syscall.WaitStatus, rusage *syscall.Rusage, err error) {
-		finishTime = time.Now()
-		status = StatusExitFailure
-		reason = err.Error()
-		setResult(ws, rusage)
-	}
-
 	var setResultWithOK = func(ws *syscall.WaitStatus, rusage *syscall.Rusage) {
 		finishTime = time.Now()
 		status = StatusOK
@@ -129,46 +127,99 @@ func (e *Executor) run() {
 		setResult(ws, rusage)
 	}
 
-	startTime = time.Now()
-	if err := cmd.Start(); err != nil {
-		setResultWithExecFailure(nil, nil, err)
-		return
+	var setResultWithSetupFailure = func(err error) {
+		finishTime = time.Now()
+		status = StatusSetupFailure
+		reason = err.Error()
+		setResult(nil, nil)
+		_ = cmd.Process.Kill() // Ensure child process will not block the parent process
 	}
 
+	var setResultWithViolation = func(err error) {
+		finishTime = time.Now()
+		status = StatusViolation
+		reason = err.Error()
+		setResult(nil, nil)
+		_ = cmd.Process.Kill() // Ensure child process will not block the parent process
+	}
+
+	var setResultWithExecFailure = func(err error) {
+		finishTime = time.Now()
+		status = StatusExitFailure
+		reason = err.Error()
+		setResult(nil, nil)
+	}
+
+	// Start a new process
+	startTime = time.Now()
+	if err := cmd.Start(); err != nil {
+		setResultWithExecFailure(err)
+		return
+	}
+	defer func() { // Avoid child process become a zombie process
+		_ = cmd.Wait()
+	}()
+
+	// Set child process resource limit
 	var pid = cmd.Process.Pid
 	if err := e.setCmdRlimits(pid); err != nil {
-		var _ = cmd.Process.Kill()
-		var _, _ = cmd.Process.Wait()
-		setResultWithExecFailure(nil, nil, err)
+		setResultWithSetupFailure(err)
 		return
 	}
 
 	var ws syscall.WaitStatus
 	var rusage syscall.Rusage
+	var regs syscall.PtraceRegs
+	var insyscall = false
 	for {
-		if _, err := syscall.Wait4(pid, &ws, 0, &rusage); err != nil {
-			setResultWithExecFailure(&ws, &rusage, err)
-			return
-		}
-
+		// Check wait status
+		_, _ = syscall.Wait4(pid, &ws, 0, &rusage)
 		if ws.Exited() {
 			setResultWithOK(&ws, &rusage)
 			return
+		} else if ws.Signaled() {
+			setResult(&ws, &rusage)
+			return
 		}
 
+		// Read register values
+		if err := syscall.PtraceGetRegs(pid, &regs); err != nil {
+			err = fmt.Errorf("ptrace: %s", err.Error())
+			setResultWithSetupFailure(err)
+			return
+		}
+
+		// Extract syscall name from regs
+		syscallName, err := seccomp.ScmpSyscall(regs.Orig_rax).GetName()
+		if err != nil {
+			err = fmt.Errorf("ptrace: %s", err.Error())
+			setResultWithSetupFailure(err)
+			return
+		}
+
+		if insyscall { // Syscall enter
+			insyscall = false
+
+			if _, ok := e.AllowedSyscalls[syscallName]; !ok {
+				err = fmt.Errorf("syscall denied: %s", syscallName)
+				setResultWithViolation(err)
+				return
+			}
+		} else { // Syscall exit
+			insyscall = true
+		}
+
+		// Make the kernel stop the child process whenever a system call
+		// entry or exit is made
 		if err := syscall.PtraceSyscall(pid, 0); err != nil {
 			err = fmt.Errorf("ptrace: %s", err.Error())
-			setResultWithExecFailure(&ws, &rusage, err)
+			setResultWithSetupFailure(err)
 			return
 		}
 	}
 }
 
 func (e *Executor) setCmdRlimits(pid int) error {
-	if e.Limits == nil {
-		return nil
-	}
-
 	if lim := e.Limits.RlimitAS; lim != nil {
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_AS, &rlim); err != nil {

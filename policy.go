@@ -1,5 +1,6 @@
 package gsandbox
 
 type Policy struct {
-	Limits `yaml:"limits"`
+	Limits          `yaml:"limits"`
+	AllowedSyscalls []string `yaml:"syscalls"`
 }
