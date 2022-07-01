@@ -65,9 +65,15 @@ func (a *SyscallArg) must(argType ParamType) {
 // Syscall func
 type Syscall struct {
 	pid       int
+	nr        uint
 	name      string
 	regs      syscall.PtraceRegs
 	signature SyscallSignature
+}
+
+// Syscall func - Get NR
+func (c *Syscall) GetNR() uint {
+	return c.nr
 }
 
 // Syscall func - Get name
@@ -97,8 +103,8 @@ func GetSyscall(pid int) (*Syscall, error) {
 	if sig, ok := syscallTable[nr]; ok {
 		signature = sig
 	} else {
-		signature = makeSyscallSignature(name) // use a default signature
+		signature = makeSyscallSignature(fmt.Sprintf("not implemented - %s", name))
 	}
 
-	return &Syscall{pid: pid, name: name, regs: regs, signature: signature}, nil
+	return &Syscall{pid: pid, nr: nr, name: name, regs: regs, signature: signature}, nil
 }

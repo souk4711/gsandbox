@@ -162,7 +162,7 @@ func (e *Executor) run() {
 		}
 
 		e.logger.Info(fmt.Sprintf(
-			"proc-exit: status(%d, %s), reason(%s), exitCode(%d), startT(%s), finishT(%s), real(%s), sys(%s), user(%s), rss(%s)",
+			"proc: EXIT, status(%d, %s), reason(%s), exitCode(%d), startT(%s), finishT(%s), real(%s), sys(%s), user(%s), rss(%s)",
 			status, status, reason, exitCode, startTime.Format(time.ANSIC), finishTime.Format(time.ANSIC), realTime, systemTime, userTime, humanize.IBytes(uint64(maxrss)),
 		))
 	}
@@ -198,7 +198,7 @@ func (e *Executor) run() {
 	}
 
 	// Start a new process
-	e.logger.Info(fmt.Sprintf("proc-start: prog(%s), args(%s)", e.Prog, e.Args))
+	e.logger.Info(fmt.Sprintf("proc: START, prog(%s), args(%s)", e.Prog, e.Args))
 	startTime = time.Now()
 	if err := cmd.Start(); err != nil {
 		setResultWithExecFailure(err)
@@ -304,16 +304,5 @@ func (e *Executor) setCmdRlimits(pid int) error {
 		}
 	}
 
-	return nil
-}
-
-func (e *Executor) runSyscallFilter(ptraceSyscall *ptrace.Syscall) error {
-	var name = ptraceSyscall.GetName()
-	e.logger.Info(fmt.Sprintf("syscall: func(%s)", name))
-
-	if _, ok := e.allowedSyscalls[name]; !ok {
-		err := fmt.Errorf("syscall: disallowed func(%s)", name)
-		return err
-	}
 	return nil
 }

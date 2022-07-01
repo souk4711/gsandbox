@@ -28,7 +28,7 @@ func (c *Syscall) getArgReg(pos int) uint {
 	}
 }
 
-// Linux System Call Table. Plz see https://chromium.googlesource.com/chromiumos/docs/+/HEAD/constants/syscalls.md#tables
+// Linux-4.14.0 System Call Table. Plz see https://chromium.googlesource.com/chromiumos/docs/+/HEAD/constants/syscalls.md#tables
 var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_READ:                   makeSyscallSignature("read", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_WRITE:                  makeSyscallSignature("write", ParamTypeAny, ParamTypeAny, ParamTypeAny),
@@ -348,4 +348,22 @@ var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_SCHED_GETATTR:     makeSyscallSignature("sched_getattr", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_RENAMEAT2:         makeSyscallSignature("renameat2", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypePath, ParamTypeAny),
 	unix.SYS_SECCOMP:           makeSyscallSignature("seccomp", ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_GETRANDOM:         makeSyscallSignature("getrandom", ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_MEMFD_CREATE:      makeSyscallSignature("memfd_create", ParamTypeAny, ParamTypeAny),
+	unix.SYS_KEXEC_FILE_LOAD:   makeSyscallSignature("kexec_file_load", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_BPF:               makeSyscallSignature("bpf", ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_EXECVEAT:          makeSyscallSignature("execveat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_USERFAULTFD:       makeSyscallSignature("userfaultfd", ParamTypeAny),
+	unix.SYS_MEMBARRIER:        makeSyscallSignature("membarrier", ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_MLOCK2:            makeSyscallSignature("mlock2", ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_COPY_FILE_RANGE:   makeSyscallSignature("copy_file_range", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_PREADV2:           makeSyscallSignature("preadv2", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_PWRITEV2:          makeSyscallSignature("pwritev2", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_PKEY_MPROTECT:     makeSyscallSignature("pkey_mprotect", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_PKEY_ALLOC:        makeSyscallSignature("pkey_alloc", ParamTypeAny, ParamTypeAny),
+	unix.SYS_PKEY_FREE:         makeSyscallSignature("pkey_free", ParamTypeAny),
+	unix.SYS_STATX:             makeSyscallSignature("statx", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_IO_URING_SETUP:    makeSyscallSignature("io_uring_setup", ParamTypeAny, ParamTypeAny),
+	unix.SYS_IO_URING_ENTER:    makeSyscallSignature("io_uring_setup", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_FACCESSAT2:        makeSyscallSignature("faccessat2", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypeAny),
 }

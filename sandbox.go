@@ -44,12 +44,12 @@ func (s *Sandbox) Run(prog string, args []string) *Executor {
 	var policy = s.policy
 	var executor = NewExecutor(prog, args).WithLogger(s.logger)
 
-	// set Flags
+	// set flags
 	if policy.ShareNetwork == ENABLED {
 		executor.SetFlag(FLAG_SHARE_NETWORK, ENABLED)
 	}
 
-	// set Limits
+	// set limits
 	var limits = Limits{}
 	if v, err := humanize.ParseBytes(policy.Limits.AS); err == nil {
 		limits.RlimitAS = &v
