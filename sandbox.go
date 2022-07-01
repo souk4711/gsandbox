@@ -16,27 +16,33 @@ type Sandbox struct {
 	policy *Policy
 }
 
-func (s *Sandbox) Policy() *Policy {
-	if s.policy == nil {
-		_ = s.LoadPolicyFromData(defaultPolicyData)
-	}
-	return s.policy
+func NewSandbox() *Sandbox {
+	var s = Sandbox{}
+	return &s
 }
 
 func (s *Sandbox) Run(prog string, args []string) *Executor {
-	var executor = Executor{
-		Prog:            prog,
-		Args:            args,
-		Limits:          s.Policy().Limits,
-		AllowedSyscalls: make(map[string]struct{}),
+	if s.policy == nil {
+		_ = s.LoadPolicyFromData(defaultPolicyData)
 	}
 
-	for _, syscall := range s.Policy().AllowedSyscalls {
-		executor.AllowedSyscalls[syscall] = struct{}{}
+	var executor = NewExecutor(prog, args)
+
+	// set Flags
+	if s.policy.ShareNetwork == ENABLED {
+		executor.SetFlag(FLAG_SHARE_NETWORK, ENABLED)
+	}
+
+	// set limits
+	executor.SetLimits(s.policy.Limits)
+
+	// set allowedSyscalls
+	for _, syscall := range s.policy.AllowedSyscalls {
+		executor.AddAllowedSyscall(syscall)
 	}
 
 	executor.Run()
-	return &executor
+	return executor
 }
 
 func (s *Sandbox) LoadPolicyFromFile(filePath string) error {
@@ -44,11 +50,9 @@ func (s *Sandbox) LoadPolicyFromFile(filePath string) error {
 	if err != nil {
 		return err
 	}
-
 	if err := s.LoadPolicyFromData(data); err != nil {
 		return err
 	}
-
 	return nil
 }
 

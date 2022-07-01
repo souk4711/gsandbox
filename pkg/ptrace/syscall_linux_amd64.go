@@ -7,23 +7,23 @@ import (
 )
 
 // Calling Conventions. Plz see https://chromium.googlesource.com/chromiumos/docs/+/HEAD/constants/syscalls.md#Calling-Conventions
-func (s *Syscall) GetReg(i int) uint {
-	switch i {
+func (c *Syscall) getArgReg(pos int) uint {
+	switch pos {
 	case 0:
-		return uint(s.regs.Rdi)
+		return uint(c.regs.Rdi)
 	case 1:
-		return uint(s.regs.Rsi)
+		return uint(c.regs.Rsi)
 	case 2:
-		return uint(s.regs.Rdx)
+		return uint(c.regs.Rdx)
 	case 3:
-		return uint(s.regs.R10)
+		return uint(c.regs.R10)
 	case 4:
-		return uint(s.regs.R8)
+		return uint(c.regs.R8)
 	case 5:
-		return uint(s.regs.R9)
+		return uint(c.regs.R9)
 	default:
 		panic(
-			fmt.Sprintf("ptrace.Syscall: index out of range [%d] with length 6", i),
+			fmt.Sprintf("ptrace.Syscall: index out of range [%d] with length 6", pos),
 		)
 	}
 }

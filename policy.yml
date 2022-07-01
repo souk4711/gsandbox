@@ -1,27 +1,26 @@
-# Process resource limits
+# allow process to access to the host network stack
+share-net: "enabled"
+
+# process resource limits
 limits:
-  # The maximum size of the process's virtual memory (address space) in bytes.
+  # the maximum size of the process's virtual memory (address space) in bytes.
   as:
 
-  # Maximum size of core file. When 0 no core dump files are created. when
+  # maximum size of core file. When 0 no core dump files are created. when
   # nonzero, larger dumps are truncated to this size.
   core:
 
   # CPU time limit in seconds.
   cpu:
 
-  # The maximum size of files that the process may create.
+  # the maximum size of files that the process may create.
   fsize:
 
-  # Specifies a value one greater than the maximum file descriptor number
+  # specifies a value one greater than the maximum file descriptor number
   # that can be opened by this process.
   nofile:
 
-# The default seccomp profile provides a sane default for running containers with
-# seccomp and disables around 44 system calls out of 300+. It is moderately
-# protective while providing wide application compatibility
-#
-# https://github.com/moby/moby/blob/master/profiles/seccomp/default.json
+# allowed syscalls, plz see https://github.com/moby/moby/blob/master/profiles/seccomp/default.json
 syscalls:
   - accept
   - accept4

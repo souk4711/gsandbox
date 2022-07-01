@@ -18,7 +18,7 @@ func newRunCommand() *cobra.Command {
 		Short: "Run a program in a sandbox",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			var sandbox = gsandbox.Sandbox{}
+			var sandbox = gsandbox.NewSandbox()
 			if policyFilePath != "" {
 				if err := sandbox.LoadPolicyFromFile(policyFilePath); err != nil {
 					return err

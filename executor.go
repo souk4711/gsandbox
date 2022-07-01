@@ -11,6 +11,14 @@ import (
 	"github.com/souk4711/gsandbox/pkg/ptrace"
 )
 
+const (
+	// flag names
+	FLAG_SHARE_NETWORK = "share-net"
+
+	// flag values
+	ENABLED = "enabled"
+)
+
 type Executor struct {
 	// Prog is the path of the command to run
 	Prog string
@@ -18,17 +26,37 @@ type Executor struct {
 	// Args holds command line arguments
 	Args []string
 
-	// Limits specifies resource limtis
-	Limits
-
-	// AllowedSyscalls specifies the calls that are allowed
-	AllowedSyscalls map[string]struct{}
-
 	// Result contains information about an exited comamnd, available after a call to #Run
 	*Result
 
+	// flags
+	flags map[string]string
+
+	// limits specifies resource limtis
+	limits Limits
+
+	// allowedSyscalls specifies the calls that are allowed
+	allowedSyscalls map[string]struct{}
+
 	// cmd is the underlying comamnd, once started
 	cmd *exec.Cmd
+}
+
+func NewExecutor(prog string, args []string) *Executor {
+	var e = Executor{Prog: prog, Args: args, flags: make(map[string]string), allowedSyscalls: make(map[string]struct{})}
+	return &e
+}
+
+func (e *Executor) SetFlag(name string, value string) {
+	e.flags[name] = value
+}
+
+func (e *Executor) SetLimits(limits Limits) {
+	e.limits = limits
+}
+
+func (e *Executor) AddAllowedSyscall(syscallName string) {
+	e.allowedSyscalls[syscallName] = struct{}{}
 }
 
 func (e *Executor) Run() {
@@ -39,31 +67,34 @@ func (e *Executor) Run() {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWNS |
-			syscall.CLONE_NEWUTS |
-			syscall.CLONE_NEWIPC |
-			syscall.CLONE_NEWPID |
-			syscall.CLONE_NEWNET |
-			syscall.CLONE_NEWUSER,
-		UidMappings: []syscall.SysProcIDMap{
-			{
-				ContainerID: 0,
-				HostID:      os.Getuid(),
-				Size:        1,
-			},
-		},
-		GidMappings: []syscall.SysProcIDMap{
-			{
-				ContainerID: 0,
-				HostID:      os.Getgid(),
-				Size:        1,
-			},
-		},
-		Ptrace: true,
+	e.setCmdProcAttr()
+	e.run()
+}
+
+func (e *Executor) setCmdProcAttr() {
+	var cloneFlags = syscall.CLONE_NEWNS |
+		syscall.CLONE_NEWUTS |
+		syscall.CLONE_NEWIPC |
+		syscall.CLONE_NEWPID |
+		syscall.CLONE_NEWNET |
+		syscall.CLONE_NEWUSER
+	if e.flags[FLAG_SHARE_NETWORK] == ENABLED {
+		cloneFlags = cloneFlags &^ syscall.CLONE_NEWNET
 	}
 
-	e.run()
+	var uidMappings = []syscall.SysProcIDMap{
+		{ContainerID: 0, HostID: os.Getuid(), Size: 1},
+	}
+	var gidMappings = []syscall.SysProcIDMap{
+		{ContainerID: 0, HostID: os.Getgid(), Size: 1},
+	}
+
+	e.cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags:  uintptr(cloneFlags),
+		UidMappings: uidMappings,
+		GidMappings: gidMappings,
+		Ptrace:      true,
+	}
 }
 
 func (e *Executor) run() {
@@ -189,14 +220,13 @@ func (e *Executor) run() {
 			return
 		}
 
-		if insyscall { // Syscall enter
+		if insyscall { // Syscall enter event
 			insyscall = false
-			if _, ok := e.AllowedSyscalls[ptraceSyscall.Name]; !ok {
-				err := fmt.Errorf("syscall: disallowed func(%s)", ptraceSyscall.Name)
+			if err := e.runSyscallFilter(ptraceSyscall); err != nil {
 				setResultWithViolation(err)
 				return
 			}
-		} else { // Syscall exit
+		} else { // Syscall exit event
 			insyscall = true
 		}
 
@@ -211,40 +241,48 @@ func (e *Executor) run() {
 }
 
 func (e *Executor) setCmdRlimits(pid int) error {
-	if lim := e.Limits.RlimitAS; lim != nil {
+	if lim := e.limits.RlimitAS; lim != nil {
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_AS, &rlim); err != nil {
 			return fmt.Errorf("rlimit: as: %s", err.Error())
 		}
 	}
 
-	if lim := e.Limits.RlimitCPU; lim != nil {
+	if lim := e.limits.RlimitCPU; lim != nil {
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_CPU, &rlim); err != nil {
 			return fmt.Errorf("rlimit: cpu: %s", err.Error())
 		}
 	}
 
-	if lim := e.Limits.RlimitCORE; lim != nil {
+	if lim := e.limits.RlimitCORE; lim != nil {
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_CORE, &rlim); err != nil {
 			return fmt.Errorf("rlimit: core: %s", err.Error())
 		}
 	}
 
-	if lim := e.Limits.RlimitFSIZE; lim != nil {
+	if lim := e.limits.RlimitFSIZE; lim != nil {
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_FSIZE, &rlim); err != nil {
 			return fmt.Errorf("rlimit: fsize: %s", err.Error())
 		}
 	}
 
-	if lim := e.Limits.RlimitNOFILE; lim != nil {
+	if lim := e.limits.RlimitNOFILE; lim != nil {
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_NOFILE, &rlim); err != nil {
 			return fmt.Errorf("rlimit: nofile: %s", err.Error())
 		}
 	}
 
+	return nil
+}
+
+func (e *Executor) runSyscallFilter(ptraceSyscall *ptrace.Syscall) error {
+	if _, ok := e.allowedSyscalls[ptraceSyscall.GetName()]; !ok {
+		err := fmt.Errorf("syscall: disallowed func(%s)", ptraceSyscall.GetName())
+		return err
+	}
 	return nil
 }

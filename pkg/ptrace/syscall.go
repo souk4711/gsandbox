@@ -20,25 +20,25 @@ const (
 
 // Syscall func signature
 type SyscallSignature struct {
-	Name   string
-	Params []ParamType
+	name   string
+	params []ParamType
 }
 
 // Syscall func signature - constructor
 func makeSyscallSignature(name string, params ...ParamType) SyscallSignature {
-	return SyscallSignature{Name: name, Params: params}
+	return SyscallSignature{name: name, params: params}
 }
 
 // Syscall arg
 type SyscallArg struct {
-	syscall  *Syscall    // pointer to syscall func
-	position int         // position in func
-	value    interface{} // real value
+	syscall *Syscall    // pointer to syscall func
+	pos     int         // position in func
+	value   interface{} // real value
 }
 
 // Syscall arg - Read value from memory
 func (a *SyscallArg) Read() *SyscallArg {
-	a.syscall.GetReg(a.position)
+	a.syscall.getArgReg(a.pos)
 	a.value = "/tmp"
 	return a
 }
@@ -51,12 +51,12 @@ func (a *SyscallArg) GetPath() string {
 
 // Syscall arg - helper
 func (a *SyscallArg) must(argType ParamType) {
-	var paramType = a.syscall.signature.Params[a.position]
+	var paramType = a.syscall.signature.params[a.pos]
 	if argType == paramType {
 		panic(
 			fmt.Sprintf(
-				"ptrace.Syscall: signature mismatched: position(%d), paramType(%s), argType(%s)",
-				a.position, argType, paramType,
+				"ptrace.Syscall: signature mismatched: pos(%d), paramType(%s), argType(%s)",
+				a.pos, argType, paramType,
 			),
 		)
 	}
@@ -64,16 +64,20 @@ func (a *SyscallArg) must(argType ParamType) {
 
 // Syscall func
 type Syscall struct {
-	Pid  int
-	Name string
-
-	regs      syscall.PtraceRegs
-	signature SyscallSignature
+	pid       int
+	name      string
+	regs      *syscall.PtraceRegs
+	signature *SyscallSignature
 }
 
-// Syscall func - Get arg object by position
-func (s *Syscall) GetArg(position int) SyscallArg {
-	return SyscallArg{syscall: s, position: position}
+// Syscall func - Get name
+func (c *Syscall) GetName() string {
+	return c.name
+}
+
+// Syscall func - Get arg object by pos
+func (c *Syscall) GetArg(pos int) SyscallArg {
+	return SyscallArg{syscall: c, pos: pos}
 }
 
 //
@@ -96,8 +100,5 @@ func GetSyscall(pid int) (*Syscall, error) {
 		signature = makeSyscallSignature(name) // use a default signature
 	}
 
-	return &Syscall{
-		Pid: pid, Name: name,
-		regs: regs, signature: signature,
-	}, nil
+	return &Syscall{pid: pid, name: name, regs: &regs, signature: &signature}, nil
 }
