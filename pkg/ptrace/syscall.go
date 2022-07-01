@@ -66,8 +66,8 @@ func (a *SyscallArg) must(argType ParamType) {
 type Syscall struct {
 	pid       int
 	name      string
-	regs      *syscall.PtraceRegs
-	signature *SyscallSignature
+	regs      syscall.PtraceRegs
+	signature SyscallSignature
 }
 
 // Syscall func - Get name
@@ -100,5 +100,5 @@ func GetSyscall(pid int) (*Syscall, error) {
 		signature = makeSyscallSignature(name) // use a default signature
 	}
 
-	return &Syscall{pid: pid, name: name, regs: &regs, signature: &signature}, nil
+	return &Syscall{pid: pid, name: name, regs: regs, signature: signature}, nil
 }

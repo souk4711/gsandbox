@@ -1,24 +1,23 @@
-# allow process to access to the host network stack
-share-net: "enabled"
+# set "enabled" to allow process to access to the host network stack
+share-net:
 
 # process resource limits
 limits:
-  # the maximum size of the process's virtual memory (address space) in bytes.
-  as:
+  # the maximum size of the process's virtual memory (address space) in.
+  as: 256 MiB
 
-  # maximum size of core file. When 0 no core dump files are created. when
-  # nonzero, larger dumps are truncated to this size.
-  core:
+  # maximum size of core file.
+  core: 0
 
-  # CPU time limit in seconds.
+  # CPU time limit, in the form "1h10m10s"
   cpu:
 
   # the maximum size of files that the process may create.
-  fsize:
+  fsize: 8 MiB
 
   # specifies a value one greater than the maximum file descriptor number
   # that can be opened by this process.
-  nofile:
+  nofile: 32
 
 # allowed syscalls, plz see https://github.com/moby/moby/blob/master/profiles/seccomp/default.json
 syscalls:
@@ -369,3 +368,12 @@ syscalls:
   - waitpid
   - write
   - writev
+
+# file system access control
+fs:
+  # readable file list
+  rd-flist:
+    -
+  # writable file list
+  wr-flist:
+    -

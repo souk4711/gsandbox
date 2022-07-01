@@ -2,8 +2,14 @@ package gsandbox
 
 import (
 	_ "embed"
+	"log"
 	"os"
+	"strconv"
+	"time"
 
+	"github.com/dustin/go-humanize"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/stdr"
 	"gopkg.in/yaml.v3"
 )
 
@@ -13,31 +19,58 @@ var (
 )
 
 type Sandbox struct {
-	policy *Policy
+	policy Policy
+	logger logr.Logger
 }
 
 func NewSandbox() *Sandbox {
 	var s = Sandbox{}
+	_ = s.LoadPolicyFromData(defaultPolicyData)
 	return &s
 }
 
-func (s *Sandbox) Run(prog string, args []string) *Executor {
-	if s.policy == nil {
-		_ = s.LoadPolicyFromData(defaultPolicyData)
+func (s *Sandbox) WithLogger(logger *logr.Logger) *Sandbox {
+	if logger == nil {
+		var defaultLogger = stdr.NewWithOptions(log.New(os.Stderr, "", log.LstdFlags), stdr.Options{})
+		defaultLogger = defaultLogger.WithName("Gsandbox")
+		s.logger = defaultLogger
+	} else {
+		s.logger = *logger
 	}
+	return s
+}
 
-	var executor = NewExecutor(prog, args)
+func (s *Sandbox) Run(prog string, args []string) *Executor {
+	var policy = s.policy
+	var executor = NewExecutor(prog, args).WithLogger(s.logger)
 
 	// set Flags
-	if s.policy.ShareNetwork == ENABLED {
+	if policy.ShareNetwork == ENABLED {
 		executor.SetFlag(FLAG_SHARE_NETWORK, ENABLED)
 	}
 
-	// set limits
-	executor.SetLimits(s.policy.Limits)
+	// set Limits
+	var limits = Limits{}
+	if v, err := humanize.ParseBytes(policy.Limits.AS); err == nil {
+		limits.RlimitAS = &v
+	}
+	if v, err := humanize.ParseBytes(policy.Limits.CORE); err == nil {
+		limits.RlimitCORE = &v
+	}
+	if duration, err := time.ParseDuration(policy.Limits.CPU); err == nil {
+		var v = uint64(duration.Seconds())
+		limits.RlimitCPU = &v
+	}
+	if v, err := humanize.ParseBytes(policy.Limits.FSIZE); err == nil {
+		limits.RlimitFSIZE = &v
+	}
+	if v, err := strconv.ParseUint(policy.Limits.NOFILE, 10, 64); err == nil {
+		limits.RlimitNOFILE = &v
+	}
+	executor.SetLimits(limits)
 
 	// set allowedSyscalls
-	for _, syscall := range s.policy.AllowedSyscalls {
+	for _, syscall := range policy.AllowedSyscalls {
 		executor.AddAllowedSyscall(syscall)
 	}
 
@@ -57,6 +90,5 @@ func (s *Sandbox) LoadPolicyFromFile(filePath string) error {
 }
 
 func (s *Sandbox) LoadPolicyFromData(data []byte) error {
-	s.policy = &Policy{}
-	return yaml.Unmarshal(data, s.policy)
+	return yaml.Unmarshal(data, &s.policy)
 }

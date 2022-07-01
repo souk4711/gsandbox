@@ -7,6 +7,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/dustin/go-humanize"
+	"github.com/go-logr/logr"
+
 	"github.com/souk4711/gsandbox/pkg/prlimit"
 	"github.com/souk4711/gsandbox/pkg/ptrace"
 )
@@ -27,7 +30,7 @@ type Executor struct {
 	Args []string
 
 	// Result contains information about an exited comamnd, available after a call to #Run
-	*Result
+	Result
 
 	// flags
 	flags map[string]string
@@ -40,11 +43,19 @@ type Executor struct {
 
 	// cmd is the underlying comamnd, once started
 	cmd *exec.Cmd
+
+	// logger
+	logger logr.Logger
 }
 
 func NewExecutor(prog string, args []string) *Executor {
 	var e = Executor{Prog: prog, Args: args, flags: make(map[string]string), allowedSyscalls: make(map[string]struct{})}
 	return &e
+}
+
+func (e *Executor) WithLogger(logger logr.Logger) *Executor {
+	e.logger = logger
+	return e
 }
 
 func (e *Executor) SetFlag(name string, value string) {
@@ -137,7 +148,7 @@ func (e *Executor) run() {
 			maxrss = rusage.Maxrss
 		}
 
-		e.Result = &Result{
+		e.Result = Result{
 			Status:     status,
 			Reason:     reason,
 			ExitCode:   exitCode,
@@ -242,37 +253,47 @@ func (e *Executor) run() {
 
 func (e *Executor) setCmdRlimits(pid int) error {
 	if lim := e.limits.RlimitAS; lim != nil {
+		e.logger.Info(fmt.Sprintf("setrlimit: as(%s)", humanize.IBytes(*lim)))
+
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_AS, &rlim); err != nil {
-			return fmt.Errorf("rlimit: as: %s", err.Error())
+			return fmt.Errorf("setrlimit: as: %s", err.Error())
 		}
 	}
 
 	if lim := e.limits.RlimitCPU; lim != nil {
+		e.logger.Info(fmt.Sprintf("setrlimit: cpu(%s)", time.Duration(*lim)))
+
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_CPU, &rlim); err != nil {
-			return fmt.Errorf("rlimit: cpu: %s", err.Error())
+			return fmt.Errorf("setrlimit: cpu: %s", err.Error())
 		}
 	}
 
 	if lim := e.limits.RlimitCORE; lim != nil {
+		e.logger.Info(fmt.Sprintf("setrlimit: core(%s)", humanize.IBytes(*lim)))
+
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_CORE, &rlim); err != nil {
-			return fmt.Errorf("rlimit: core: %s", err.Error())
+			return fmt.Errorf("setrlimit: core: %s", err.Error())
 		}
 	}
 
 	if lim := e.limits.RlimitFSIZE; lim != nil {
+		e.logger.Info(fmt.Sprintf("setrlimit: fsize(%s)", humanize.IBytes(*lim)))
+
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_FSIZE, &rlim); err != nil {
-			return fmt.Errorf("rlimit: fsize: %s", err.Error())
+			return fmt.Errorf("setrlimit: fsize: %s", err.Error())
 		}
 	}
 
 	if lim := e.limits.RlimitNOFILE; lim != nil {
+		e.logger.Info(fmt.Sprintf("setrlimit: nofile(%d)", *lim))
+
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_NOFILE, &rlim); err != nil {
-			return fmt.Errorf("rlimit: nofile: %s", err.Error())
+			return fmt.Errorf("setrlimit: nofile: %s", err.Error())
 		}
 	}
 
@@ -280,8 +301,11 @@ func (e *Executor) setCmdRlimits(pid int) error {
 }
 
 func (e *Executor) runSyscallFilter(ptraceSyscall *ptrace.Syscall) error {
-	if _, ok := e.allowedSyscalls[ptraceSyscall.GetName()]; !ok {
-		err := fmt.Errorf("syscall: disallowed func(%s)", ptraceSyscall.GetName())
+	var name = ptraceSyscall.GetName()
+	e.logger.Info(fmt.Sprintf("syscall: func(%s)", name))
+
+	if _, ok := e.allowedSyscalls[name]; !ok {
+		err := fmt.Errorf("syscall: disallowed func(%s)", name)
 		return err
 	}
 	return nil
