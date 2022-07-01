@@ -13,11 +13,11 @@ limits:
   cpu:
 
   # the maximum size of files that the process may create.
-  fsize: 8 MiB
+  fsize: 16 MiB
 
   # specifies a value one greater than the maximum file descriptor number
   # that can be opened by this process.
-  nofile: 32
+  nofile: 256
 
 # allowed syscalls, plz see https://github.com/moby/moby/blob/master/profiles/seccomp/default.json
 syscalls:

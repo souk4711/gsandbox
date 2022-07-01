@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
@@ -13,6 +14,7 @@ import (
 
 	"github.com/souk4711/gsandbox/pkg/prlimit"
 	"github.com/souk4711/gsandbox/pkg/ptrace"
+	"github.com/souk4711/gsandbox/pkg/ptracefile"
 )
 
 const (
@@ -45,12 +47,19 @@ type Executor struct {
 	// cmd is the underlying comamnd, once started
 	cmd *exec.Cmd
 
+	// fileset
+	fileset ptracefile.FileSet
+
 	// logger
 	logger logr.Logger
 }
 
 func NewExecutor(prog string, args []string) *Executor {
-	var e = Executor{Prog: prog, Args: args, flags: make(map[string]string), allowedSyscalls: make(map[string]struct{})}
+	var e = Executor{
+		Prog: prog, Args: args,
+		flags: make(map[string]string), allowedSyscalls: make(map[string]struct{}),
+		fileset: *ptracefile.NewFileSet(),
+	}
 	return &e
 }
 
@@ -203,6 +212,15 @@ func (e *Executor) run() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
+	// Set wd
+	wd, err := filepath.Abs(".")
+	if err != nil {
+		setResultWithSetupFailure(err)
+		return
+	}
+	cmd.Dir = wd
+	e.fileset.Setwd(wd)
+
 	// Start a new process
 	e.logger.Info(fmt.Sprintf("proc: action(start), prog(%s), args(%s)", e.Prog, e.Args))
 	startTime = time.Now()
@@ -246,12 +264,16 @@ func (e *Executor) run() {
 
 		if insyscall { // Syscall enter event
 			insyscall = false
-			if err := e.runSyscallFilter(ptraceSyscall); err != nil {
+			if err := e.applySyscallFilterWhenEnter(ptraceSyscall); err != nil {
 				setResultWithViolation(err)
 				return
 			}
 		} else { // Syscall exit event
 			insyscall = true
+			if err := e.applySyscallFilterWhenExit(ptraceSyscall, nil); err != nil {
+				setResultWithViolation(err)
+				return
+			}
 		}
 
 		// Resume tracee execution. Make the kernel stop the child process whenever a

@@ -1,6 +1,7 @@
 package ptrace
 
 import (
+	"bytes"
 	"fmt"
 	"syscall"
 
@@ -31,32 +32,21 @@ func makeSyscallSignature(name string, params ...ParamType) SyscallSignature {
 
 // Syscall arg
 type SyscallArg struct {
-	syscall *Syscall    // pointer to syscall func
-	pos     int         // position in func
-	value   interface{} // real value
+	syscall *Syscall // pointer to syscall func
+	pos     int      // position in func
 }
 
-// Syscall arg - Read value from memory
-func (a *SyscallArg) Read() *SyscallArg {
-	a.syscall.getArgReg(a.pos)
-	a.value = "/tmp"
-	return a
-}
-
-// Syscall arg - Convert to Path
-func (a *SyscallArg) GetPath() string {
-	a.must(ParamTypePath)
-	return a.value.(string)
-}
-
-// Syscall arg - helper
-func (a *SyscallArg) must(argType ParamType) {
-	var paramType = a.syscall.signature.params[a.pos]
-	if argType == paramType {
-		panic(
-			fmt.Sprintf("signature mismatched, pos(%d), paramType(%s), argType(%s)", a.pos, argType, paramType),
-		)
+// Syscall arg - GetPath
+func (a *SyscallArg) GetPath() (string, error) {
+	var addr = a.syscall.getArgReg(a.pos)
+	var buffer [1024]byte
+	if _, err := syscall.PtracePeekData(a.syscall.pid, uintptr(addr), buffer[:]); err != nil {
+		return "", fmt.Errorf("PeekData: %s", err.Error())
 	}
+	if i := bytes.IndexByte(buffer[:], 0); i >= 0 && i < len(buffer) {
+		return string(buffer[:i]), nil
+	}
+	return "", fmt.Errorf("PeekData: illegal args")
 }
 
 // Syscall func
