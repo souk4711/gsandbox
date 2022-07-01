@@ -162,7 +162,7 @@ func (e *Executor) run() {
 		}
 
 		e.logger.Info(fmt.Sprintf(
-			"proc: EXIT, status(%d, %s), reason(%s), exitCode(%d), startT(%s), finishT(%s), real(%s), sys(%s), user(%s), rss(%s)",
+			"proc: action(exit), status(%d, %s), reason(%s), exitCode(%d), startT(%s), finishT(%s), real(%s), sys(%s), user(%s), rss(%s)",
 			status, status, reason, exitCode, startTime.Format(time.ANSIC), finishTime.Format(time.ANSIC), realTime, systemTime, userTime, humanize.IBytes(uint64(maxrss)),
 		))
 	}
@@ -198,7 +198,7 @@ func (e *Executor) run() {
 	}
 
 	// Start a new process
-	e.logger.Info(fmt.Sprintf("proc: START, prog(%s), args(%s)", e.Prog, e.Args))
+	e.logger.Info(fmt.Sprintf("proc: action(start), prog(%s), args(%s)", e.Prog, e.Args))
 	startTime = time.Now()
 	if err := cmd.Start(); err != nil {
 		setResultWithExecFailure(err)
@@ -251,7 +251,7 @@ func (e *Executor) run() {
 		// Resume tracee execution. Make the kernel stop the child process whenever a
 		// system call entry or exit is made
 		if err := syscall.PtraceSyscall(pid, 0); err != nil {
-			err = fmt.Errorf("ptrace: %s", err.Error())
+			err = fmt.Errorf("ptrace: Syscall: %s", err.Error())
 			setResultWithSetupFailure(err)
 			return
 		}
@@ -264,7 +264,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_AS, &rlim); err != nil {
-			return fmt.Errorf("setrlimit: as: %s", err.Error())
+			return fmt.Errorf("setrlimit: SetAS: %s", err.Error())
 		}
 	}
 
@@ -273,7 +273,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_CPU, &rlim); err != nil {
-			return fmt.Errorf("setrlimit: cpu: %s", err.Error())
+			return fmt.Errorf("setrlimit: SetCPU: %s", err.Error())
 		}
 	}
 
@@ -282,7 +282,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_CORE, &rlim); err != nil {
-			return fmt.Errorf("setrlimit: core: %s", err.Error())
+			return fmt.Errorf("setrlimit: SetCORE: %s", err.Error())
 		}
 	}
 
@@ -291,7 +291,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_FSIZE, &rlim); err != nil {
-			return fmt.Errorf("setrlimit: fsize: %s", err.Error())
+			return fmt.Errorf("setrlimit: SetFSIZE: %s", err.Error())
 		}
 	}
 
@@ -300,7 +300,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_NOFILE, &rlim); err != nil {
-			return fmt.Errorf("setrlimit: nofile: %s", err.Error())
+			return fmt.Errorf("setrlimit: SetNOFILE: %s", err.Error())
 		}
 	}
 

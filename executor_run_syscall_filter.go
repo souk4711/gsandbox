@@ -21,7 +21,7 @@ func (e *Executor) runSyscallFilter_Allowable(ptraceSyscall *ptrace.Syscall) err
 	e.logger.Info(fmt.Sprintf("syscall: func(%s)", name))
 
 	if _, ok := e.allowedSyscalls[name]; !ok {
-		err := fmt.Errorf("syscall: DENY, func(%s)", name)
+		err := fmt.Errorf("syscall: Deny: func(%s)", name)
 		return err
 	}
 	return nil

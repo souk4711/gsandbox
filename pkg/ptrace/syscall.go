@@ -54,10 +54,7 @@ func (a *SyscallArg) must(argType ParamType) {
 	var paramType = a.syscall.signature.params[a.pos]
 	if argType == paramType {
 		panic(
-			fmt.Sprintf(
-				"ptrace.Syscall: signature mismatched: pos(%d), paramType(%s), argType(%s)",
-				a.pos, argType, paramType,
-			),
+			fmt.Sprintf("signature mismatched, pos(%d), paramType(%s), argType(%s)", a.pos, argType, paramType),
 		)
 	}
 }
@@ -90,13 +87,13 @@ func (c *Syscall) GetArg(pos int) SyscallArg {
 func GetSyscall(pid int) (*Syscall, error) {
 	var regs = syscall.PtraceRegs{}
 	if err := syscall.PtraceGetRegs(pid, &regs); err != nil {
-		return nil, fmt.Errorf("ptrace: %s", err.Error())
+		return nil, fmt.Errorf("ptrace: GetRegs: %s", err.Error())
 	}
 
 	var nr = uint(regs.Orig_rax)
 	var name, err = seccomp.ScmpSyscall(nr).GetName()
 	if err != nil {
-		return nil, fmt.Errorf("ptrace: %s", err.Error())
+		return nil, fmt.Errorf("ptrace: ScmpGetName: %s", err.Error())
 	}
 
 	var signature SyscallSignature

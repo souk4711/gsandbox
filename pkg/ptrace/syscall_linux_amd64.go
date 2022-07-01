@@ -23,7 +23,7 @@ func (c *Syscall) getArgReg(pos int) uint {
 		return uint(c.regs.R9)
 	default:
 		panic(
-			fmt.Sprintf("ptrace.Syscall: index out of range [%d] with length 6", pos),
+			fmt.Sprintf("index out of range [%d] with length 6", pos),
 		)
 	}
 }
