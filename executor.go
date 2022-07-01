@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"runtime"
 	"syscall"
 	"time"
 
@@ -196,6 +197,11 @@ func (e *Executor) run() {
 		reason = err.Error()
 		setResult(nil, nil)
 	}
+
+	// Because the go runtime forks traced processes with PTRACE_TRACEME
+	// we need to maintain the parent-child relationship for ptrace to work
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
 
 	// Start a new process
 	e.logger.Info(fmt.Sprintf("proc: action(start), prog(%s), args(%s)", e.Prog, e.Args))
