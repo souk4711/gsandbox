@@ -148,17 +148,23 @@ func (e *Executor) run() {
 			maxrss = rusage.Maxrss
 		}
 
+		var realTime = finishTime.Sub(startTime)
 		e.Result = Result{
 			Status:     status,
 			Reason:     reason,
 			ExitCode:   exitCode,
 			StartTime:  startTime,
 			FinishTime: finishTime,
-			RealTime:   finishTime.Sub(startTime),
+			RealTime:   realTime,
 			SystemTime: systemTime,
 			UserTime:   userTime,
 			Maxrss:     maxrss,
 		}
+
+		e.logger.Info(fmt.Sprintf(
+			"proc-exit: status(%d, %s), reason(%s), exitCode(%d), startT(%s), finishT(%s), real(%s), sys(%s), user(%s), rss(%s)",
+			status, status, reason, exitCode, startTime.Format(time.ANSIC), finishTime.Format(time.ANSIC), realTime, systemTime, userTime, humanize.IBytes(uint64(maxrss)),
+		))
 	}
 
 	var setResultWithOK = func(ws *syscall.WaitStatus, rusage *syscall.Rusage) {
@@ -192,6 +198,7 @@ func (e *Executor) run() {
 	}
 
 	// Start a new process
+	e.logger.Info(fmt.Sprintf("proc-start: prog(%s), args(%s)", e.Prog, e.Args))
 	startTime = time.Now()
 	if err := cmd.Start(); err != nil {
 		setResultWithExecFailure(err)
