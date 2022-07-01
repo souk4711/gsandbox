@@ -1,12 +1,34 @@
 package ptrace
 
 import (
+	"fmt"
+
 	"golang.org/x/sys/unix"
 )
 
-// Linux System Call Table
-//
-// Plz see https://chromium.googlesource.com/chromiumos/docs/+/HEAD/constants/syscalls.md#tables
+// Calling Conventions. Plz see https://chromium.googlesource.com/chromiumos/docs/+/HEAD/constants/syscalls.md#Calling-Conventions
+func (s *Syscall) GetReg(i int) uint {
+	switch i {
+	case 0:
+		return uint(s.regs.Rdi)
+	case 1:
+		return uint(s.regs.Rsi)
+	case 2:
+		return uint(s.regs.Rdx)
+	case 3:
+		return uint(s.regs.R10)
+	case 4:
+		return uint(s.regs.R8)
+	case 5:
+		return uint(s.regs.R9)
+	default:
+		panic(
+			fmt.Sprintf("ptrace.Syscall: index out of range [%d] with length 6", i),
+		)
+	}
+}
+
+// Linux System Call Table. Plz see https://chromium.googlesource.com/chromiumos/docs/+/HEAD/constants/syscalls.md#tables
 var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_READ:                   makeSyscallSignature("read", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_WRITE:                  makeSyscallSignature("write", ParamTypeAny, ParamTypeAny, ParamTypeAny),

@@ -192,7 +192,7 @@ func (e *Executor) run() {
 		if insyscall { // Syscall enter
 			insyscall = false
 			if _, ok := e.AllowedSyscalls[ptraceSyscall.Name]; !ok {
-				err := fmt.Errorf("syscall denied: %s", ptraceSyscall.Name)
+				err := fmt.Errorf("syscall: disallowed func(%s)", ptraceSyscall.Name)
 				setResultWithViolation(err)
 				return
 			}
