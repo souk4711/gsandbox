@@ -16,6 +16,7 @@ type PolicyLimits struct {
 }
 
 type PolicyFileSystem struct {
-	ReadableFlist []string `yaml:"rd-flist"`
-	WritableFlist []string `yaml:"wr-flist"`
+	ReadableFlist   []string `yaml:"rd-flist"`
+	WritableFlist   []string `yaml:"wr-flist"`
+	ExecutableFlist []string `yaml:"ex-flist"`
 }

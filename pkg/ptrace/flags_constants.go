@@ -1,6 +1,8 @@
 package ptrace
 
-import "golang.org/x/sys/unix"
+import (
+	"golang.org/x/sys/unix"
+)
 
 type FlagOpenConstant int
 

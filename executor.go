@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"runtime"
 	"syscall"
 	"time"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/souk4711/gsandbox/pkg/prlimit"
 	"github.com/souk4711/gsandbox/pkg/ptrace"
-	"github.com/souk4711/gsandbox/pkg/ptracefile"
 )
 
 const (
@@ -47,9 +45,6 @@ type Executor struct {
 	// cmd is the underlying comamnd, once started
 	cmd *exec.Cmd
 
-	// fileset
-	fileset ptracefile.FileSet
-
 	// logger
 	logger logr.Logger
 }
@@ -58,7 +53,6 @@ func NewExecutor(prog string, args []string) *Executor {
 	var e = Executor{
 		Prog: prog, Args: args,
 		flags: make(map[string]string), allowedSyscalls: make(map[string]struct{}),
-		fileset: *ptracefile.NewFileSet(),
 	}
 	return &e
 }
@@ -189,7 +183,7 @@ func (e *Executor) run() {
 		status = StatusSetupFailure
 		reason = err.Error()
 		setResult(nil, nil)
-		_ = cmd.Process.Kill() // Ensure child process will not block the parent process
+		_ = cmd.Process.Kill() // ensure child process will not block the parent process
 	}
 
 	var setResultWithViolation = func(err error) {
@@ -197,7 +191,7 @@ func (e *Executor) run() {
 		status = StatusViolation
 		reason = err.Error()
 		setResult(nil, nil)
-		_ = cmd.Process.Kill() // Ensure child process will not block the parent process
+		_ = cmd.Process.Kill() // ensure child process will not block the parent process
 	}
 
 	var setResultWithExecFailure = func(err error) {
@@ -208,43 +202,35 @@ func (e *Executor) run() {
 	}
 
 	// Because the go runtime forks traced processes with PTRACE_TRACEME
-	// we need to maintain the parent-child relationship for ptrace to work
+	// we need to maintain the parent-child relationship for ptrace to work.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	// Set wd
-	wd, err := filepath.Abs(".")
-	if err != nil {
-		setResultWithSetupFailure(err)
-		return
-	}
-	cmd.Dir = wd
-	e.fileset.Setwd(wd)
-
-	// Start a new process
+	// start a new process
 	e.logger.Info(fmt.Sprintf("proc: start: prog(%s), args(%s)", e.Prog, e.Args))
 	startTime = time.Now()
 	if err := cmd.Start(); err != nil {
 		setResultWithExecFailure(err)
 		return
 	}
-	defer func() { // Avoid child process become a zombie process
+	defer func() { // avoid child process become a zombie process
 		_ = cmd.Wait()
 	}()
 
-	// Set child process resource limit
+	// set child process resource limit
 	var pid = cmd.Process.Pid
 	if err := e.setCmdRlimits(pid); err != nil {
 		setResultWithSetupFailure(err)
 		return
 	}
 
+	// start trace
 	var ws syscall.WaitStatus
 	var rusage syscall.Rusage
 	var prev *ptrace.Syscall = nil
 	var insyscall = false
 	for {
-		// Check wait status
+		// check wait status
 		_, _ = syscall.Wait4(pid, &ws, 0, &rusage)
 		if ws.Exited() {
 			setResultWithOK(&ws, &rusage)
@@ -256,21 +242,21 @@ func (e *Executor) run() {
 			_ = ws.Signal()
 		}
 
-		// Handle ptrace events
+		// handle ptrace events
 		curr, err := ptrace.GetSyscall(pid)
 		if err != nil {
 			setResultWithSetupFailure(err)
 			return
 		}
 
-		if insyscall { // Syscall enter event
+		if insyscall { // syscall enter event
 			if err := e.applySyscallFilterWhenEnter(curr); err != nil {
 				setResultWithViolation(err)
 				return
 			}
 			prev = curr
 			insyscall = false
-		} else { // Syscall exit event
+		} else { // syscall exit event
 			if err := e.applySyscallFilterWhenExit(curr, prev); err != nil {
 				setResultWithViolation(err)
 				return
@@ -280,7 +266,7 @@ func (e *Executor) run() {
 		}
 
 		// Resume tracee execution. Make the kernel stop the child process whenever a
-		// system call entry or exit is made
+		// system call entry or exit is made.
 		if err := syscall.PtraceSyscall(pid, 0); err != nil {
 			err = fmt.Errorf("ptrace: Syscall: %s", err.Error())
 			setResultWithSetupFailure(err)

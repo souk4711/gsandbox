@@ -3,7 +3,7 @@ share-net:
 
 # process resource limits
 limits:
-  # the maximum size of the process's virtual memory (address space) in.
+  # the maximum size of the process's virtual memory (address space).
   as: 256 MiB
 
   # maximum size of core file.
@@ -373,7 +373,12 @@ syscalls:
 fs:
   # readable file list
   rd-flist:
-    -
+    - .
+
   # writable file list
   wr-flist:
+    -
+
+  # executable file list
+  ex-flist:
     -

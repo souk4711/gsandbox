@@ -62,7 +62,7 @@ func (s *Sandbox) Run(prog string, args []string) *Executor {
 	}
 	executor.SetLimits(limits)
 
-	// set allowedSyscalls
+	// set allowed syscalls
 	for _, syscall := range policy.AllowedSyscalls {
 		executor.AddAllowedSyscall(syscall)
 	}

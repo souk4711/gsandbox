@@ -35,7 +35,6 @@ func (f FlagOpen) String() string {
 	update(O_RDONLY)
 	update(O_WRONLY)
 	update(O_RDWR)
-
 	update(O_APPEND)
 	update(O_ASYNC)
 	update(O_CLOEXEC)
