@@ -50,15 +50,9 @@ func (a *SyscallArg) String() string {
 	case ParamTypePath:
 		return fmt.Sprintf("'%s'", a.GetPath())
 	case ParamTypeFd:
-		var fd = a.GetFd()
-		if fd == unix.AT_FDCWD {
-			return "AT_FDCWD"
-		} else {
-			return fmt.Sprint(fd)
-		}
+		return fmt.Sprint(Fd(a.GetFd()))
 	case ParamTypeFlagOpen:
-		var flag = a.GetFlag()
-		return fmt.Sprint(FlagOpen(flag))
+		return fmt.Sprint(FlagOpen(a.GetFlag()))
 	default:
 		return "<any>"
 	}

@@ -1,8 +1,28 @@
 package ptrace
 
-import "fmt"
+import (
+	"fmt"
 
+	"golang.org/x/sys/unix"
+)
+
+type Fd int
 type FlagOpen int
+
+func (fd Fd) String() string {
+	switch int(fd) {
+	case unix.AT_FDCWD:
+		return "AT_FDCWD"
+	case unix.Stdin:
+		return "STDIN"
+	case unix.Stdout:
+		return "STDOUT"
+	case unix.Stderr:
+		return "STDERR"
+	default:
+		return fmt.Sprint(int(fd))
+	}
+}
 
 func (f FlagOpen) String() string {
 	var str = ""
@@ -12,23 +32,24 @@ func (f FlagOpen) String() string {
 		}
 	}
 
-	update(O_ACCMODE)
 	update(O_RDONLY)
 	update(O_WRONLY)
 	update(O_RDWR)
-	update(O_CREAT)
-	update(O_EXCL)
-	update(O_NOCTTY)
-	update(O_TRUNC)
+
 	update(O_APPEND)
-	update(O_NONBLOCK)
-	update(O_DSYNC)
 	update(O_ASYNC)
-	update(O_NOATIME)
 	update(O_CLOEXEC)
-	update(O_SYNC)
+	update(O_CREAT)
+	update(O_DIRECT)
+	update(O_DSYNC)
+	update(O_EXCL)
+	update(O_NOATIME)
+	update(O_NOCTTY)
+	update(O_NONBLOCK)
 	update(O_PATH)
+	update(O_SYNC)
 	update(O_TMPFILE)
+	update(O_TRUNC)
 
 	if str == "" {
 		return fmt.Sprint(int(f))

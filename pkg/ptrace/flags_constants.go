@@ -1,27 +1,28 @@
-// Ref: https://github.com/google/gvisor/blob/master/pkg/abi/linux/file.go
-
 package ptrace
+
+import "golang.org/x/sys/unix"
 
 type FlagOpenConstant int
 
-// Constants for open(2).
+// https://man7.org/linux/man-pages/man2/open.2.html
 //go:generate stringer -type=FlagOpenConstant -output=flags_constants_open_string.go
 const (
-	O_ACCMODE  FlagOpenConstant = 000000003
-	O_RDONLY   FlagOpenConstant = 000000000
-	O_WRONLY   FlagOpenConstant = 000000001
-	O_RDWR     FlagOpenConstant = 000000002
-	O_CREAT    FlagOpenConstant = 000000100
-	O_EXCL     FlagOpenConstant = 000000200
-	O_NOCTTY   FlagOpenConstant = 000000400
-	O_TRUNC    FlagOpenConstant = 000001000
-	O_APPEND   FlagOpenConstant = 000002000
-	O_NONBLOCK FlagOpenConstant = 000004000
-	O_DSYNC    FlagOpenConstant = 000010000
-	O_ASYNC    FlagOpenConstant = 000020000
-	O_NOATIME  FlagOpenConstant = 001000000
-	O_CLOEXEC  FlagOpenConstant = 002000000
-	O_SYNC     FlagOpenConstant = 004000000 // __O_SYNC in Linux
-	O_PATH     FlagOpenConstant = 010000000
-	O_TMPFILE  FlagOpenConstant = 020000000 // __O_TMPFILE in Linux
+	O_RDONLY FlagOpenConstant = unix.O_RDONLY
+	O_WRONLY FlagOpenConstant = unix.O_WRONLY
+	O_RDWR   FlagOpenConstant = unix.O_RDWR
+
+	O_APPEND   FlagOpenConstant = unix.O_APPEND
+	O_ASYNC    FlagOpenConstant = unix.O_ASYNC
+	O_CLOEXEC  FlagOpenConstant = unix.O_CLOEXEC
+	O_CREAT    FlagOpenConstant = unix.O_CREAT
+	O_DIRECT   FlagOpenConstant = unix.O_DIRECT
+	O_DSYNC    FlagOpenConstant = unix.O_DSYNC
+	O_EXCL     FlagOpenConstant = unix.O_EXCL
+	O_NOATIME  FlagOpenConstant = unix.O_NOATIME
+	O_NOCTTY   FlagOpenConstant = unix.O_NOCTTY
+	O_NONBLOCK FlagOpenConstant = unix.O_NONBLOCK
+	O_PATH     FlagOpenConstant = unix.O_PATH
+	O_SYNC     FlagOpenConstant = unix.O_SYNC
+	O_TMPFILE  FlagOpenConstant = unix.O_TMPFILE
+	O_TRUNC    FlagOpenConstant = unix.O_TRUNC
 )
