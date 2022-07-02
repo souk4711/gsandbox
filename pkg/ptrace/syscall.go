@@ -6,6 +6,7 @@ import (
 	"syscall"
 
 	"github.com/seccomp/libseccomp-golang"
+	"golang.org/x/sys/unix"
 )
 
 // Syscall param
@@ -61,7 +62,12 @@ func (a *SyscallArg) Read() error {
 
 	switch paramType {
 	case ParamTypePath:
-		var buffer [1024]byte
+		if regptr == 0 {
+			a.v_str = ""
+			return nil
+		}
+
+		var buffer [unix.PathMax]byte
 		if _, err := syscall.PtracePeekData(a.syscall.pid, regptr, buffer[:]); err != nil {
 			return fmt.Errorf("PeekData: %s", err.Error())
 		}
