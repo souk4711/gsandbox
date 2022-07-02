@@ -1,12 +1,14 @@
 package ptrace
 
+import "fmt"
+
 type FlagOpen int
 
 func (f FlagOpen) String() string {
 	var str = ""
 	var update = func(flag FlagOpenConstant) {
 		if int(f)&int(flag) != 0 {
-			str += flag.String() + " | "
+			str += flag.String() + "|"
 		}
 	}
 
@@ -29,8 +31,8 @@ func (f FlagOpen) String() string {
 	update(O_TMPFILE)
 
 	if str == "" {
-		return ""
+		return fmt.Sprint(int(f))
 	} else {
-		return str[:len(str)-3]
+		return str[:len(str)-1]
 	}
 }

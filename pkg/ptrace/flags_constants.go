@@ -5,7 +5,7 @@ package ptrace
 type FlagOpenConstant int
 
 // Constants for open(2).
-//go:generate stringer -type=FlagOpenConstant -output=flags_constants_string_open.go
+//go:generate stringer -type=FlagOpenConstant -output=flags_constants_open_string.go
 const (
 	O_ACCMODE  FlagOpenConstant = 000000003
 	O_RDONLY   FlagOpenConstant = 000000000
