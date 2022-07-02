@@ -1,7 +1,6 @@
 package ptrace
 
 import (
-	"bytes"
 	"fmt"
 	"syscall"
 
@@ -65,20 +64,11 @@ func (a *SyscallArg) Read() error {
 
 	switch paramType {
 	case ParamTypePath:
-		if regptr == 0 {
-			a.v_str = ""
-			return nil
+		v, err := a.readString(regptr, unix.PathMax)
+		if err != nil {
+			return err
 		}
-
-		var buffer [unix.PathMax]byte
-		if _, err := syscall.PtracePeekData(a.syscall.pid, regptr, buffer[:]); err != nil {
-			return fmt.Errorf("PeekData: %s", err.Error())
-		}
-		if i := bytes.IndexByte(buffer[:], 0); i >= 0 && i < len(buffer) {
-			a.v_str = string(buffer[:i])
-		} else {
-			return fmt.Errorf("PeekData: illegal args")
-		}
+		a.v_str = v
 	case ParamTypeFd:
 		a.v_int = int(int32(regptr))
 	case ParamTypeFlagOpen:
@@ -101,6 +91,27 @@ func (a *SyscallArg) GetFd() int {
 // Syscall arg - convert value to Flag
 func (a *SyscallArg) GetFlag() int {
 	return a.v_int
+}
+
+// Syscall arg - helper for read null-terminated string
+func (a *SyscallArg) readString(addr uintptr, max int) (string, error) {
+	if addr == 0 {
+		return "<nil>", nil
+	}
+
+	var str string
+	var buf [1]byte
+	for len(str) < max {
+		if _, err := syscall.PtracePeekData(a.syscall.pid, addr, buf[:]); err != nil {
+			return "", fmt.Errorf("PeekData: %s", err.Error())
+		}
+		if buf[0] == 0 { // NULL
+			break
+		}
+		str = str + string(buf[:])
+		addr++
+	}
+	return str, nil
 }
 
 // Syscall retval
