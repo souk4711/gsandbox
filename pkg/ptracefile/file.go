@@ -1,8 +1,6 @@
 package ptracefile
 
-type FileFD int
-
 type File struct {
-	FD       FileFD
+	FD       int
 	Pathname string
 }

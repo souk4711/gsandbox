@@ -59,11 +59,7 @@ func (e *Executor) applySyscallFilterWhenExit(curr *ptrace.Syscall, prev *ptrace
 	}
 
 	// logging
-	var errmsg = ""
-	if retval.HasError() {
-		errmsg = retval.GetErrno().Error()
-	}
-	e.logger.Info(fmt.Sprintf("syscall: Exit_: name(%s), retval(%d), errmsg(%s)", curr.GetName(), retval.GetValue(), errmsg))
+	e.logger.Info(fmt.Sprintf("syscall: Exit_: name(%s), retval(%s)", curr.GetName(), retval))
 
 	// filter
 	if err := e.applySyscallFilterWhenExit_FileAccessControl(curr, prev); err != nil {

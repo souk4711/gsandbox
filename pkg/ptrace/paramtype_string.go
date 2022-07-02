@@ -10,11 +10,12 @@ func _() {
 	var x [1]struct{}
 	_ = x[ParamTypeAny-0]
 	_ = x[ParamTypePath-1]
+	_ = x[ParamTypeFd-2]
 }
 
-const _ParamType_name = "ParamTypeAnyParamTypePath"
+const _ParamType_name = "ParamTypeAnyParamTypePathParamTypeFd"
 
-var _ParamType_index = [...]uint8{0, 12, 25}
+var _ParamType_index = [...]uint8{0, 12, 25, 36}
 
 func (i ParamType) String() string {
 	if i < 0 || i >= ParamType(len(_ParamType_index)-1) {

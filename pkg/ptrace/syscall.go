@@ -16,6 +16,7 @@ type ParamType int
 const (
 	ParamTypeAny  ParamType = iota // placeholder
 	ParamTypePath                  // a pointer to char* path
+	ParamTypeFd                    // int fd
 	// ...
 )
 
@@ -36,6 +37,7 @@ type SyscallArg struct {
 	pos     int      // position in func
 
 	// hold ANY value, available after a call to #Read
+	v_int int
 	v_str string
 }
 
@@ -45,6 +47,8 @@ func (a *SyscallArg) String() string {
 	switch paramType {
 	case ParamTypePath:
 		return fmt.Sprintf(`"%s"`, a.GetPath())
+	case ParamTypeFd:
+		return fmt.Sprint(a.GetFd())
 	default:
 		return "<any>"
 	}
@@ -53,11 +57,12 @@ func (a *SyscallArg) String() string {
 // Syscall arg - Read value from regs
 func (a *SyscallArg) Read() error {
 	var paramType = a.syscall.signature.params[a.pos]
+	var regptr = a.syscall.getArgReg(a.pos)
+
 	switch paramType {
 	case ParamTypePath:
-		var addr = a.syscall.getArgReg(a.pos)
 		var buffer [1024]byte
-		if _, err := syscall.PtracePeekData(a.syscall.pid, addr, buffer[:]); err != nil {
+		if _, err := syscall.PtracePeekData(a.syscall.pid, regptr, buffer[:]); err != nil {
 			return fmt.Errorf("PeekData: %s", err.Error())
 		}
 		if i := bytes.IndexByte(buffer[:], 0); i >= 0 && i < len(buffer) {
@@ -65,6 +70,8 @@ func (a *SyscallArg) Read() error {
 		} else {
 			return fmt.Errorf("PeekData: illegal args")
 		}
+	case ParamTypeFd:
+		a.v_int = int(int32(regptr))
 	}
 
 	return nil
@@ -73,6 +80,11 @@ func (a *SyscallArg) Read() error {
 // Syscall arg - Convert value to Path
 func (a *SyscallArg) GetPath() string {
 	return a.v_str
+}
+
+// Syscall arg - Convert value to Fd
+func (a *SyscallArg) GetFd() int {
+	return a.v_int
 }
 
 // Syscall retval
