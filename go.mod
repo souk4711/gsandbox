@@ -5,7 +5,6 @@ go 1.18
 require (
 	github.com/dustin/go-humanize v1.0.0
 	github.com/go-logr/logr v1.2.3
-	github.com/goccy/go-json v0.9.7
 	github.com/seccomp/libseccomp-golang v0.10.0
 	github.com/spf13/cobra v1.5.0
 	golang.org/x/sys v0.0.0-20220627191245-f75cf1eec38b

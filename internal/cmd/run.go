@@ -1,12 +1,12 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
-	"github.com/goccy/go-json"
 	"github.com/spf13/cobra"
 
 	"github.com/souk4711/gsandbox"
