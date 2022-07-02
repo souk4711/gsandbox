@@ -1,3 +1,5 @@
+// Ref: https://chromium.googlesource.com/chromiumos/docs/+/HEAD/constants/syscalls.md
+
 package ptrace
 
 import (
@@ -6,7 +8,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Calling Conventions. Plz see https://chromium.googlesource.com/chromiumos/docs/+/HEAD/constants/syscalls.md#calling-conventions
+// Calling Conventions
 func (c *Syscall) getArgReg(pos int) uintptr {
 	switch pos {
 	case 0:
@@ -25,11 +27,13 @@ func (c *Syscall) getArgReg(pos int) uintptr {
 		panic(fmt.Sprintf("index out of range [%d] with length 6", pos))
 	}
 }
+
+// Calling Conventions
 func (c *Syscall) getRetval() int {
 	return int(c.regs.Rax)
 }
 
-// Linux-4.14.0 System Call Table. Plz see https://chromium.googlesource.com/chromiumos/docs/+/HEAD/constants/syscalls.md#tables
+// Linux-4.14.0 System Call Table
 var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_READ:                   makeSyscallSignature("read", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_WRITE:                  makeSyscallSignature("write", ParamTypeAny, ParamTypeAny, ParamTypeAny),
@@ -288,12 +292,12 @@ var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_INOTIFY_ADD_WATCH: makeSyscallSignature("inotify_add_watch", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_INOTIFY_RM_WATCH:  makeSyscallSignature("inotify_rm_watch", ParamTypeAny, ParamTypeAny),
 	unix.SYS_MIGRATE_PAGES:     makeSyscallSignature("migrate_pages", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
-	unix.SYS_OPENAT:            makeSyscallSignature("openat", ParamTypeFd, ParamTypePath, ParamTypeAny, ParamTypeAny),
+	unix.SYS_OPENAT:            makeSyscallSignature("openat", ParamTypeFd, ParamTypePath, ParamTypeFlagOpen, ParamTypeAny),
 	unix.SYS_MKDIRAT:           makeSyscallSignature("mkdirat", ParamTypeAny, ParamTypePath, ParamTypeAny),
 	unix.SYS_MKNODAT:           makeSyscallSignature("mknodat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypeAny),
 	unix.SYS_FCHOWNAT:          makeSyscallSignature("fchownat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_FUTIMESAT:         makeSyscallSignature("futimesat", ParamTypeAny, ParamTypePath, ParamTypeAny),
-	unix.SYS_NEWFSTATAT:        makeSyscallSignature("newfstatat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypeAny),
+	unix.SYS_NEWFSTATAT:        makeSyscallSignature("newfstatat", ParamTypeFd, ParamTypePath, ParamTypeAny, ParamTypeAny),
 	unix.SYS_UNLINKAT:          makeSyscallSignature("unlinkat", ParamTypeAny, ParamTypePath, ParamTypeAny),
 	unix.SYS_RENAMEAT:          makeSyscallSignature("renameat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypePath),
 	unix.SYS_LINKAT:            makeSyscallSignature("linkat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypePath, ParamTypeAny),

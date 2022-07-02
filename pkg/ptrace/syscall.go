@@ -13,11 +13,12 @@ import (
 type ParamType int
 
 // Syscall param - all available values
-//go:generate stringer -type=ParamType
+//go:generate stringer -type=ParamType -output=syscall_paramtype_string.go
 const (
-	ParamTypeAny  ParamType = iota // placeholder
-	ParamTypePath                  // a pointer to char* path
-	ParamTypeFd                    // int fd
+	ParamTypeAny      ParamType = iota // placeholder
+	ParamTypePath                      // a pointer to char* path
+	ParamTypeFd                        // int fd
+	ParamTypeFlagOpen                  // flag for open
 	// ...
 )
 
@@ -55,6 +56,9 @@ func (a *SyscallArg) String() string {
 		} else {
 			return fmt.Sprint(fd)
 		}
+	case ParamTypeFlagOpen:
+		var flag = a.GetFlag()
+		return fmt.Sprint(FlagOpen(flag))
 	default:
 		return "<any>"
 	}
@@ -83,6 +87,8 @@ func (a *SyscallArg) Read() error {
 		}
 	case ParamTypeFd:
 		a.v_int = int(int32(regptr))
+	case ParamTypeFlagOpen:
+		a.v_int = int(int32(regptr))
 	}
 
 	return nil
@@ -95,6 +101,11 @@ func (a *SyscallArg) GetPath() string {
 
 // Syscall arg - convert value to Fd
 func (a *SyscallArg) GetFd() int {
+	return a.v_int
+}
+
+// Syscall arg - convert value to Flag
+func (a *SyscallArg) GetFlag() int {
 	return a.v_int
 }
 
