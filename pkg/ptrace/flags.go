@@ -27,7 +27,7 @@ func (fd Fd) String() string {
 func (f FlagOpen) String() string {
 	var str = ""
 	var update = func(flag FlagOpenConstant) {
-		if int(f)&int(flag) != 0 {
+		if int(f) == int(flag) || int(f)&int(flag) != 0 {
 			str += flag.String() + "|"
 		}
 	}

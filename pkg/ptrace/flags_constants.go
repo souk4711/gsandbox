@@ -7,10 +7,9 @@ type FlagOpenConstant int
 // https://man7.org/linux/man-pages/man2/open.2.html
 //go:generate stringer -type=FlagOpenConstant -output=flags_constants_open_string.go
 const (
-	O_RDONLY FlagOpenConstant = unix.O_RDONLY
-	O_WRONLY FlagOpenConstant = unix.O_WRONLY
-	O_RDWR   FlagOpenConstant = unix.O_RDWR
-
+	O_RDONLY   FlagOpenConstant = unix.O_RDONLY
+	O_WRONLY   FlagOpenConstant = unix.O_WRONLY
+	O_RDWR     FlagOpenConstant = unix.O_RDWR
 	O_APPEND   FlagOpenConstant = unix.O_APPEND
 	O_ASYNC    FlagOpenConstant = unix.O_ASYNC
 	O_CLOEXEC  FlagOpenConstant = unix.O_CLOEXEC
