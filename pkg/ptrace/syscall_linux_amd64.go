@@ -288,7 +288,7 @@ var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_INOTIFY_ADD_WATCH: makeSyscallSignature("inotify_add_watch", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_INOTIFY_RM_WATCH:  makeSyscallSignature("inotify_rm_watch", ParamTypeAny, ParamTypeAny),
 	unix.SYS_MIGRATE_PAGES:     makeSyscallSignature("migrate_pages", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
-	unix.SYS_OPENAT:            makeSyscallSignature("openat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypeAny),
+	unix.SYS_OPENAT:            makeSyscallSignature("openat", ParamTypeFd, ParamTypePath, ParamTypeAny, ParamTypeAny),
 	unix.SYS_MKDIRAT:           makeSyscallSignature("mkdirat", ParamTypeAny, ParamTypePath, ParamTypeAny),
 	unix.SYS_MKNODAT:           makeSyscallSignature("mknodat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypeAny),
 	unix.SYS_FCHOWNAT:          makeSyscallSignature("fchownat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypeAny, ParamTypeAny),

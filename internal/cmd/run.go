@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"fmt"
 	"os"
 
-	"github.com/go-logr/stdr"
+	"github.com/go-logr/logr"
+	"github.com/go-logr/logr/funcr"
 	"github.com/goccy/go-json"
 	"github.com/spf13/cobra"
 
@@ -20,18 +22,27 @@ func newRunCommand() *cobra.Command {
 		Short: "Run a program in a sandbox",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			var sandbox = gsandbox.NewSandbox()
+
+			// Flag: verbose
 			if verbose {
-				stdr.SetVerbosity(1)
+				var logger logr.Logger = funcr.New(func(prefix, args string) {
+					fmt.Println(prefix, args)
+				}, funcr.Options{}).WithName("Gsandbox")
+				sandbox.WithLogger(logger)
 			}
 
-			var sandbox = gsandbox.NewSandbox().WithLogger(nil)
+			// Flag: policy-file
 			if policyFilePath != "" {
 				if err := sandbox.LoadPolicyFromFile(policyFilePath); err != nil {
 					return err
 				}
 			}
 
+			// run
 			var executor = sandbox.Run(args[0], args[1:])
+
+			// Flag: report-file
 			var resultData, _ = json.Marshal(executor.Result)
 			var _ = os.WriteFile(reportFilePath, resultData, 0644)
 			return nil

@@ -2,14 +2,13 @@ package gsandbox
 
 import (
 	_ "embed"
-	"log"
 	"os"
 	"strconv"
 	"time"
 
 	"github.com/dustin/go-humanize"
 	"github.com/go-logr/logr"
-	"github.com/go-logr/stdr"
+	"github.com/go-logr/logr/funcr"
 	"gopkg.in/yaml.v3"
 )
 
@@ -24,19 +23,13 @@ type Sandbox struct {
 }
 
 func NewSandbox() *Sandbox {
-	var s = Sandbox{}
+	var s = Sandbox{logger: funcr.New(func(_, _ string) {}, funcr.Options{})}
 	_ = s.LoadPolicyFromData(defaultPolicyData)
 	return &s
 }
 
-func (s *Sandbox) WithLogger(logger *logr.Logger) *Sandbox {
-	if logger == nil {
-		var defaultLogger = stdr.NewWithOptions(log.New(os.Stderr, "", log.LstdFlags), stdr.Options{})
-		defaultLogger = defaultLogger.WithName("Gsandbox")
-		s.logger = defaultLogger
-	} else {
-		s.logger = *logger
-	}
+func (s *Sandbox) WithLogger(logger logr.Logger) *Sandbox {
+	s.logger = logger
 	return s
 }
 

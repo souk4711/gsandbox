@@ -2,6 +2,7 @@ package gsandbox
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/souk4711/gsandbox/pkg/ptrace"
 	"golang.org/x/sys/unix"
@@ -21,7 +22,7 @@ func (e *Executor) applySyscallFilterWhenEnter(curr *ptrace.Syscall) error {
 	for i, arg := range curr.GetArgs() {
 		args[i] = arg.String()
 	}
-	e.logger.Info(fmt.Sprintf("syscall: Enter: name(%s), args(%s)", name, args))
+	e.logger.Info(fmt.Sprintf("syscall: Enter: %s(%s)", name, strings.Join(args, ", ")))
 
 	// filter
 	if err := e.applySyscallFilterWhenEnter_Allowable(curr); err != nil {
@@ -59,7 +60,7 @@ func (e *Executor) applySyscallFilterWhenExit(curr *ptrace.Syscall, prev *ptrace
 	}
 
 	// logging
-	e.logger.Info(fmt.Sprintf("syscall: Exit_: name(%s), retval(%s)", curr.GetName(), retval))
+	e.logger.Info(fmt.Sprintf("syscall: Exit_:   => %s", retval))
 
 	// filter
 	if err := e.applySyscallFilterWhenExit_FileAccessControl(curr, prev); err != nil {

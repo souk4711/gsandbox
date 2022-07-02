@@ -42,20 +42,25 @@ type SyscallArg struct {
 	v_str string
 }
 
-// Syscall func - String
+// Syscall func - interface Stringer
 func (a *SyscallArg) String() string {
 	var paramType = a.syscall.signature.params[a.pos]
 	switch paramType {
 	case ParamTypePath:
-		return fmt.Sprintf(`"%s"`, a.GetPath())
+		return fmt.Sprintf("'%s'", a.GetPath())
 	case ParamTypeFd:
-		return fmt.Sprint(a.GetFd())
+		var fd = a.GetFd()
+		if fd == unix.AT_FDCWD {
+			return "AT_FDCWD"
+		} else {
+			return fmt.Sprint(fd)
+		}
 	default:
 		return "<any>"
 	}
 }
 
-// Syscall arg - Read value from regs
+// Syscall arg - read value from register
 func (a *SyscallArg) Read() error {
 	var paramType = a.syscall.signature.params[a.pos]
 	var regptr = a.syscall.getArgReg(a.pos)
@@ -83,12 +88,12 @@ func (a *SyscallArg) Read() error {
 	return nil
 }
 
-// Syscall arg - Convert value to Path
+// Syscall arg - convert value to Path
 func (a *SyscallArg) GetPath() string {
 	return a.v_str
 }
 
-// Syscall arg - Convert value to Fd
+// Syscall arg - convert value to Fd
 func (a *SyscallArg) GetFd() int {
 	return a.v_int
 }
@@ -100,12 +105,16 @@ type SyscallRetval struct {
 	errno   syscall.Errno // errno, available after a call to #Read
 }
 
-// Syscall retval - String
+// Syscall retval - interface Stringer
 func (r *SyscallRetval) String() string {
-	return fmt.Sprint(r.value)
+	if r.HasError() {
+		return fmt.Sprintf("%d, %s", r.value, r.errno.Error())
+	} else {
+		return fmt.Sprint(r.value)
+	}
 }
 
-// Syscall retval - Read value from regs
+// Syscall retval - read value from register
 func (r *SyscallRetval) Read() error {
 	if r.value = r.syscall.getRetval(); r.value < 0 {
 		r.errno = syscall.Errno(-r.value)
@@ -113,17 +122,17 @@ func (r *SyscallRetval) Read() error {
 	return nil
 }
 
-// Syscall retval -
+// Syscall retval - attr reader for value
 func (r *SyscallRetval) GetValue() int {
 	return r.value
 }
 
-// Syscall retval -
+// Syscall retval - attr reader for errno
 func (r *SyscallRetval) GetErrno() syscall.Errno {
 	return r.errno
 }
 
-// Syscall retval -
+// Syscall retval - check errno
 func (r *SyscallRetval) HasError() bool {
 	return r.value < 0
 }
@@ -139,27 +148,27 @@ type Syscall struct {
 	retval    *SyscallRetval     // return value
 }
 
-// Syscall func - Get NR
+// Syscall func - attr reader for nr
 func (c *Syscall) GetNR() uint {
 	return c.nr
 }
 
-// Syscall func - Get name
+// Syscall func - attr reader for name
 func (c *Syscall) GetName() string {
 	return c.name
 }
 
-// Syscall func - Get args object
+// Syscall func - attr reader for args
 func (c *Syscall) GetArgs() []*SyscallArg {
 	return c.args
 }
 
-// Syscall func - Get arg object by pos
+// Syscall func - attr reader for arg in specified postion
 func (c *Syscall) GetArg(pos int) *SyscallArg {
 	return c.args[pos]
 }
 
-// Syscall func - Get retval object
+// Syscall func - attr reader for retval
 func (c *Syscall) GetRetval() *SyscallRetval {
 	return c.retval
 }
@@ -184,17 +193,12 @@ func GetSyscall(pid int) (*Syscall, error) {
 		signature = makeSyscallSignature(fmt.Sprintf("not implemented - %s", name))
 	}
 
-	// Syscall
 	var call = Syscall{pid: pid, regs: regs, nr: nr, name: name, signature: signature}
-
-	// Syscall args
 	var args = make([]*SyscallArg, len(signature.params))
 	for i := range signature.params {
 		args[i] = &SyscallArg{syscall: &call, pos: i}
 	}
 	call.args = args
-
-	// Syscall return
 	call.retval = &SyscallRetval{syscall: &call}
 
 	return &call, nil
