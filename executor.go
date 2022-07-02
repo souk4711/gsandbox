@@ -172,7 +172,7 @@ func (e *Executor) run() {
 		}
 
 		e.logger.Info(fmt.Sprintf(
-			"proc: action(exit), status(%d, %s), reason(%s), exitCode(%d), startT(%s), finishT(%s), real(%s), sys(%s), user(%s), rss(%s)",
+			"proc: exit: status(%d, %s), reason(%s), exitCode(%d), startT(%s), finishT(%s), real(%s), sys(%s), user(%s), rss(%s)",
 			status, status, reason, exitCode, startTime.Format(time.ANSIC), finishTime.Format(time.ANSIC), realTime, systemTime, userTime, humanize.IBytes(uint64(maxrss)),
 		))
 	}
@@ -222,7 +222,7 @@ func (e *Executor) run() {
 	e.fileset.Setwd(wd)
 
 	// Start a new process
-	e.logger.Info(fmt.Sprintf("proc: action(start), prog(%s), args(%s)", e.Prog, e.Args))
+	e.logger.Info(fmt.Sprintf("proc: start: prog(%s), args(%s)", e.Prog, e.Args))
 	startTime = time.Now()
 	if err := cmd.Start(); err != nil {
 		setResultWithExecFailure(err)
@@ -241,6 +241,7 @@ func (e *Executor) run() {
 
 	var ws syscall.WaitStatus
 	var rusage syscall.Rusage
+	var prev *ptrace.Syscall = nil
 	var insyscall = false
 	for {
 		// Check wait status
@@ -256,24 +257,26 @@ func (e *Executor) run() {
 		}
 
 		// Handle ptrace events
-		ptraceSyscall, err := ptrace.GetSyscall(pid)
+		curr, err := ptrace.GetSyscall(pid)
 		if err != nil {
 			setResultWithSetupFailure(err)
 			return
 		}
 
 		if insyscall { // Syscall enter event
+			if err := e.applySyscallFilterWhenEnter(curr); err != nil {
+				setResultWithViolation(err)
+				return
+			}
+			prev = curr
 			insyscall = false
-			if err := e.applySyscallFilterWhenEnter(ptraceSyscall); err != nil {
-				setResultWithViolation(err)
-				return
-			}
 		} else { // Syscall exit event
-			insyscall = true
-			if err := e.applySyscallFilterWhenExit(ptraceSyscall, nil); err != nil {
+			if err := e.applySyscallFilterWhenExit(curr, prev); err != nil {
 				setResultWithViolation(err)
 				return
 			}
+			prev = nil
+			insyscall = true
 		}
 
 		// Resume tracee execution. Make the kernel stop the child process whenever a

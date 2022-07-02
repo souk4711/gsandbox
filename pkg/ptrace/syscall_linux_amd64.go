@@ -6,26 +6,27 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Calling Conventions. Plz see https://chromium.googlesource.com/chromiumos/docs/+/HEAD/constants/syscalls.md#Calling-Conventions
-func (c *Syscall) getArgReg(pos int) uint {
+// Calling Conventions. Plz see https://chromium.googlesource.com/chromiumos/docs/+/HEAD/constants/syscalls.md#calling-conventions
+func (c *Syscall) getArgReg(pos int) uintptr {
 	switch pos {
 	case 0:
-		return uint(c.regs.Rdi)
+		return uintptr(c.regs.Rdi)
 	case 1:
-		return uint(c.regs.Rsi)
+		return uintptr(c.regs.Rsi)
 	case 2:
-		return uint(c.regs.Rdx)
+		return uintptr(c.regs.Rdx)
 	case 3:
-		return uint(c.regs.R10)
+		return uintptr(c.regs.R10)
 	case 4:
-		return uint(c.regs.R8)
+		return uintptr(c.regs.R8)
 	case 5:
-		return uint(c.regs.R9)
+		return uintptr(c.regs.R9)
 	default:
-		panic(
-			fmt.Sprintf("index out of range [%d] with length 6", pos),
-		)
+		panic(fmt.Sprintf("index out of range [%d] with length 6", pos))
 	}
+}
+func (c *Syscall) getRetval() int {
+	return int(c.regs.Rax)
 }
 
 // Linux-4.14.0 System Call Table. Plz see https://chromium.googlesource.com/chromiumos/docs/+/HEAD/constants/syscalls.md#tables

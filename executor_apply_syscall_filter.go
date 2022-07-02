@@ -3,15 +3,27 @@ package gsandbox
 import (
 	"fmt"
 
-	"golang.org/x/sys/unix"
-
 	"github.com/souk4711/gsandbox/pkg/ptrace"
+	"golang.org/x/sys/unix"
 )
 
 func (e *Executor) applySyscallFilterWhenEnter(curr *ptrace.Syscall) error {
-	var name = curr.GetName()
-	e.logger.Info(fmt.Sprintf("syscall: action(enter) func(%s)", name))
+	// prepare data from regs
+	for _, arg := range curr.GetArgs() {
+		if err := arg.Read(); err != nil {
+			return fmt.Errorf("syscall: %s", err.Error())
+		}
+	}
 
+	// logging
+	var name = curr.GetName()
+	var args = make([]string, len(curr.GetArgs()))
+	for i, arg := range curr.GetArgs() {
+		args[i] = arg.String()
+	}
+	e.logger.Info(fmt.Sprintf("syscall: Enter: name(%s), args(%s)", name, args))
+
+	// filter
 	if err := e.applySyscallFilterWhenEnter_Allowable(curr); err != nil {
 		return err
 	}
@@ -40,9 +52,20 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 }
 
 func (e *Executor) applySyscallFilterWhenExit(curr *ptrace.Syscall, prev *ptrace.Syscall) error {
-	var name = curr.GetName()
-	e.logger.Info(fmt.Sprintf("syscall: action(exit_) func(%s)", name))
+	// prepare data from regs
+	var retval = curr.GetRetval()
+	if err := retval.Read(); err != nil {
+		return fmt.Errorf("syscall: %s", err.Error())
+	}
 
+	// logging
+	var errmsg = ""
+	if retval.HasError() {
+		errmsg = retval.GetErrno().Error()
+	}
+	e.logger.Info(fmt.Sprintf("syscall: Exit_: name(%s), retval(%d), errmsg(%s)", curr.GetName(), retval.GetValue(), errmsg))
+
+	// filter
 	if err := e.applySyscallFilterWhenExit_FileAccessControl(curr, prev); err != nil {
 		return err
 	}
