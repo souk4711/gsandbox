@@ -23,53 +23,25 @@ func (fs *FsFilter) TraceFd(fd int, fullpath string) {
 }
 
 func (fs *FsFilter) AllowRead(path string, dirfd int) (bool, error) {
-	fullpath, err := fs.getAbs(path, dirfd)
-	if err != nil {
-		return false, err
-	}
-
-	for _, f := range fs.allowedFiles {
-		allowed, err := f.AllowRead(fullpath)
-		if err != nil {
-			return false, err
-		}
-		if allowed {
-			return true, nil
-		}
-	}
-	return false, nil
+	return fs.allow(path, dirfd, FILE_RD)
 }
 
 func (fs *FsFilter) AllowWrite(path string, dirfd int) (bool, error) {
-	fullpath, err := fs.getAbs(path, dirfd)
-	if err != nil {
-		return false, err
-	}
-
-	for _, f := range fs.allowedFiles {
-		allowed, err := f.AllowWrite(fullpath)
-		if err != nil {
-			return false, err
-		}
-		if allowed {
-			return true, nil
-		}
-	}
-	return false, nil
+	return fs.allow(path, dirfd, FILE_WR)
 }
 
 func (fs *FsFilter) AllowExecute(path string, dirfd int) (bool, error) {
+	return fs.allow(path, dirfd, FILE_EX)
+}
+
+func (fs *FsFilter) allow(path string, dirfd int, perm int) (bool, error) {
 	fullpath, err := fs.getAbs(path, dirfd)
 	if err != nil {
 		return false, err
 	}
 
 	for _, f := range fs.allowedFiles {
-		allowed, err := f.AllowExecute(fullpath)
-		if err != nil {
-			return false, err
-		}
-		if allowed {
+		if f.AllowExecute(fullpath) {
 			return true, nil
 		}
 	}

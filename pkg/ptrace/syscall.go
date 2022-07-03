@@ -193,13 +193,13 @@ func (c *Syscall) GetRetval() *SyscallRetval {
 func GetSyscall(pid int) (*Syscall, error) {
 	var regs = syscall.PtraceRegs{}
 	if err := syscall.PtraceGetRegs(pid, &regs); err != nil {
-		return nil, fmt.Errorf("ptrace: GetRegs: %s", err.Error())
+		return nil, fmt.Errorf("GetRegs: %s", err.Error())
 	}
 
 	var nr = uint(regs.Orig_rax)
 	var name, err = seccomp.ScmpSyscall(nr).GetName()
 	if err != nil {
-		return nil, fmt.Errorf("ptrace: ScmpGetName: %s", err.Error())
+		return nil, fmt.Errorf("ScmpGetName: %s", err.Error())
 	}
 
 	var signature SyscallSignature

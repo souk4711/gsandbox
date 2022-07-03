@@ -6,7 +6,7 @@ type Status int
 const (
 	StatusUnset               Status = iota // unset
 	StatusOK                                // ok
-	StatusSetupFailure                      // sandbox setup failure
+	StatusSandboxFailure                    // sandbox exec failure
 	StatusTimeLimitExceeded                 // time limit execeeded
 	StatusMemoryLimitExceeded               // memory limit exceeded
 	StatusOutputLimitExceeded               // output limit exceeded

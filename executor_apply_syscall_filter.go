@@ -8,11 +8,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func (e *Executor) applySyscallFilterWhenEnter(curr *ptrace.Syscall) error {
+func (e *Executor) applySyscallFilterWhenEnter(curr *ptrace.Syscall) (error, error) {
 	// prepare data from regs
 	for _, arg := range curr.GetArgs() {
 		if err := arg.Read(); err != nil {
-			return fmt.Errorf("syscall: %s", err.Error())
+			return nil, fmt.Errorf("ptrace: %s", err.Error())
 		}
 	}
 
@@ -24,57 +24,66 @@ func (e *Executor) applySyscallFilterWhenEnter(curr *ptrace.Syscall) error {
 	}
 	e.logger.Info(fmt.Sprintf("syscall: Enter: %s(%s)", name, strings.Join(args, ", ")))
 
-	// filter
-	if err := e.applySyscallFilterWhenEnter_Allowable(curr); err != nil {
-		return err
+	// filter - allowable
+	r1, err := e.applySyscallFilterWhenEnter_Allowable(curr)
+	if err != nil || r1 != nil {
+		return r1, err
 	}
-	if err := e.applySyscallFilterWhenEnter_FileAccessControl(curr); err != nil {
-		return err
+
+	// filter - fs
+	r2, err := e.applySyscallFilterWhenEnter_FileAccessControl(curr)
+	if err != nil || r2 != nil {
+		return r2, err
 	}
-	return nil
+
+	// ok
+	return nil, nil
 }
 
-func (e *Executor) applySyscallFilterWhenEnter_Allowable(curr *ptrace.Syscall) error {
+func (e *Executor) applySyscallFilterWhenEnter_Allowable(curr *ptrace.Syscall) (error, error) {
 	if _, ok := e.allowedSyscalls[curr.GetName()]; !ok {
 		err := fmt.Errorf("syscall: IllegalCall: func(%s)", curr.GetName())
-		return err
+		return err, nil
 	}
-	return nil
+	return nil, nil
 }
 
-func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Syscall) error {
+func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Syscall) (error, error) {
 	switch curr.GetNR() {
 	case unix.SYS_OPEN:
 	case unix.SYS_ACCESS:
 	case unix.SYS_OPENAT:
 	}
 
-	return nil
+	return nil, nil
 }
 
-func (e *Executor) applySyscallFilterWhenExit(curr *ptrace.Syscall, prev *ptrace.Syscall) error {
+func (e *Executor) applySyscallFilterWhenExit(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
 	// prepare data from regs
 	var retval = curr.GetRetval()
 	if err := retval.Read(); err != nil {
-		return fmt.Errorf("syscall: %s", err.Error())
+		return nil, fmt.Errorf("ptrace: %s", err.Error())
 	}
 
 	// logging
 	e.logger.Info(fmt.Sprintf("syscall: Exit_:   => %s", retval))
 
-	// filter
-	if err := e.applySyscallFilterWhenExit_FileAccessControl(curr, prev); err != nil {
-		return err
+	// filter - fs
+	r1, err := e.applySyscallFilterWhenExit_FileAccessControl(curr, prev)
+	if err != nil || r1 != nil {
+		return err, r1
 	}
-	return nil
+
+	// ok
+	return nil, nil
 }
 
-func (e *Executor) applySyscallFilterWhenExit_FileAccessControl(curr *ptrace.Syscall, prev *ptrace.Syscall) error {
+func (e *Executor) applySyscallFilterWhenExit_FileAccessControl(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
 	switch curr.GetNR() {
 	case unix.SYS_OPEN:
 	case unix.SYS_ACCESS:
 	case unix.SYS_OPENAT:
 	}
 
-	return nil
+	return nil, nil
 }

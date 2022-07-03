@@ -178,9 +178,9 @@ func (e *Executor) run() {
 		setResult(ws, rusage)
 	}
 
-	var setResultWithSetupFailure = func(err error) {
+	var setResultWithSandboxFailure = func(err error) {
 		finishTime = time.Now()
-		status = StatusSetupFailure
+		status = StatusSandboxFailure
 		reason = err.Error()
 		setResult(nil, nil)
 		_ = cmd.Process.Kill() // ensure child process will not block the parent process
@@ -220,7 +220,7 @@ func (e *Executor) run() {
 	// set child process resource limit
 	var pid = cmd.Process.Pid
 	if err := e.setCmdRlimits(pid); err != nil {
-		setResultWithSetupFailure(err)
+		setResultWithSandboxFailure(err)
 		return
 	}
 
@@ -245,20 +245,30 @@ func (e *Executor) run() {
 		// handle ptrace events
 		curr, err := ptrace.GetSyscall(pid)
 		if err != nil {
-			setResultWithSetupFailure(err)
+			setResultWithSandboxFailure(err)
 			return
 		}
 
 		if insyscall { // syscall enter event
-			if err := e.applySyscallFilterWhenEnter(curr); err != nil {
-				setResultWithViolation(err)
+			result, err := e.applySyscallFilterWhenEnter(curr)
+			if err != nil {
+				setResultWithSandboxFailure(err)
+				return
+			}
+			if result != nil {
+				setResultWithViolation(result)
 				return
 			}
 			prev = curr
 			insyscall = false
 		} else { // syscall exit event
-			if err := e.applySyscallFilterWhenExit(curr, prev); err != nil {
-				setResultWithViolation(err)
+			result, err := e.applySyscallFilterWhenExit(curr, prev)
+			if err != nil {
+				setResultWithSandboxFailure(err)
+				return
+			}
+			if result != nil {
+				setResultWithViolation(result)
 				return
 			}
 			prev = nil
@@ -269,7 +279,7 @@ func (e *Executor) run() {
 		// system call entry or exit is made.
 		if err := syscall.PtraceSyscall(pid, 0); err != nil {
 			err = fmt.Errorf("ptrace: Syscall: %s", err.Error())
-			setResultWithSetupFailure(err)
+			setResultWithSandboxFailure(err)
 			return
 		}
 	}
