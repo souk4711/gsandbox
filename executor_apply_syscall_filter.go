@@ -49,13 +49,25 @@ func (e *Executor) applySyscallFilterWhenEnter_Allowable(curr *ptrace.Syscall) (
 }
 
 func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Syscall) (error, error) {
+	var dirfd int
+	var path string
+
 	switch curr.GetNR() {
-	case unix.SYS_OPEN:
-	case unix.SYS_ACCESS:
 	case unix.SYS_OPENAT:
+		dirfd = curr.GetArg(0).GetFd()
+		path = curr.GetArg(1).GetPath()
+		goto CHECK_READABLE
+	default:
+		return nil, nil
 	}
 
-	return nil, nil
+CHECK_READABLE:
+	if ok, _ := e.fsfilter.AllowRead(path, dirfd); !ok {
+		err := fmt.Errorf("fs: ReadDisallowed: path(%s), dirfd(%d)", path, dirfd)
+		return err, nil
+	} else {
+		return nil, nil
+	}
 }
 
 func (e *Executor) applySyscallFilterWhenExit(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
@@ -80,8 +92,6 @@ func (e *Executor) applySyscallFilterWhenExit(curr *ptrace.Syscall, prev *ptrace
 
 func (e *Executor) applySyscallFilterWhenExit_FileAccessControl(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
 	switch curr.GetNR() {
-	case unix.SYS_OPEN:
-	case unix.SYS_ACCESS:
 	case unix.SYS_OPENAT:
 	}
 

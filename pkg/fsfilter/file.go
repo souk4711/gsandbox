@@ -42,7 +42,7 @@ func (f *File) allow(fullpath string, perm int) bool {
 
 func (f *File) hasEntry(fullpath string) bool {
 	return f.fullpath == fullpath || // samefile
-		(f.mode.IsDir() && strings.HasPrefix(f.fullpath, fullpath)) // file/subdir in dir
+		(f.mode.IsDir() && strings.HasPrefix(fullpath, f.fullpath)) // file/subdir in dir
 }
 
 func (f *File) hasPerm(perm int) bool {

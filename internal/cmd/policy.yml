@@ -374,6 +374,13 @@ fs:
   # readable file list
   rd-files:
     - .
+    - ~/.gvm/
+    - /dev/
+    - /etc/
+    - /proc/
+    - /sys/
+    - /usr/lib/
+    - /usr/share/
 
   # writable file list
   wr-files:
