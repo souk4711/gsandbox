@@ -8,6 +8,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
+	"github.com/souk4711/gsandbox/pkg/fsfilter"
 	"gopkg.in/yaml.v3"
 )
 
@@ -59,6 +60,11 @@ func (s *Sandbox) Run(prog string, args []string) *Executor {
 	for _, syscall := range policy.AllowedSyscalls {
 		executor.AddAllowedSyscall(syscall)
 	}
+
+	// set allowed files with perm
+	executor.SetFilterFileList(fsfilter.FILE_RD, policy.FileSystem.ReadableFiles)
+	executor.SetFilterFileList(fsfilter.FILE_WR, policy.FileSystem.WritableFiles)
+	executor.SetFilterFileList(fsfilter.FILE_EX, policy.FileSystem.ExecutableFiles)
 
 	executor.Run()
 	return executor

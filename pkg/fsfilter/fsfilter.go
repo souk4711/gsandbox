@@ -49,11 +49,11 @@ func (fs *FsFilter) AddAllowedFile(path string, perm int) error {
 	} else if path[0:1] == "/" { // absolute path
 		fullpath = filepath.Clean(path)
 	} else {
-		return fmt.Errorf("invalid path - %s", path)
+		return fmt.Errorf("invalid path(%s)", path)
 	}
 
-	var file = File{fullpath: fullpath, mode: os.FileMode(mode)}
-	fs.allowedFiles = append(fs.allowedFiles, file)
+	var file = NewFile(fullpath, os.FileMode(mode))
+	fs.allowedFiles = append(fs.allowedFiles, *file)
 	return nil
 }
 

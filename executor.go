@@ -45,6 +45,9 @@ type Executor struct {
 
 	// fsfilter specifies the Filter
 	fsfilter *fsfilter.FsFilter
+	rdFiles  []string
+	wrFiles  []string
+	exFiles  []string
 
 	// cmd is the underlying comamnd, once started
 	cmd *exec.Cmd
@@ -76,6 +79,19 @@ func (e *Executor) SetLimits(limits Limits) {
 
 func (e *Executor) AddAllowedSyscall(syscallName string) {
 	e.allowedSyscalls[syscallName] = struct{}{}
+}
+
+func (e *Executor) SetFilterFileList(perm int, files []string) {
+	switch perm {
+	case fsfilter.FILE_RD:
+		e.rdFiles = files
+	case fsfilter.FILE_WR:
+		e.wrFiles = files
+	case fsfilter.FILE_EX:
+		e.exFiles = files
+	default:
+		panic("invalid argument to SetFilerFileList")
+	}
 }
 
 func (e *Executor) Run() {
@@ -226,6 +242,27 @@ func (e *Executor) run() {
 	if err := e.setCmdRlimits(pid); err != nil {
 		setResultWithSandboxFailure(err)
 		return
+	}
+
+	// set fsfilter
+	e.fsfilter = fsfilter.NewFsFilter(pid)
+	for _, file := range e.rdFiles {
+		if err := e.fsfilter.AddAllowedFile(file, fsfilter.FILE_RD); err != nil {
+			setResultWithSandboxFailure(err)
+			return
+		}
+	}
+	for _, file := range e.wrFiles {
+		if err := e.fsfilter.AddAllowedFile(file, fsfilter.FILE_WR); err != nil {
+			setResultWithSandboxFailure(err)
+			return
+		}
+	}
+	for _, file := range e.exFiles {
+		if err := e.fsfilter.AddAllowedFile(file, fsfilter.FILE_EX); err != nil {
+			setResultWithSandboxFailure(err)
+			return
+		}
 	}
 
 	// start trace

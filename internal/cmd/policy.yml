@@ -372,13 +372,11 @@ syscalls:
 # file system access control
 fs:
   # readable file list
-  rd-flist:
+  rd-files:
     - .
 
   # writable file list
-  wr-flist:
-    -
+  wr-files:
 
   # executable file list
-  ex-flist:
-    -
+  ex-files:
