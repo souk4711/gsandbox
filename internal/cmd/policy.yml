@@ -6,7 +6,7 @@ limits:
   # the maximum size of the process's virtual memory (address space).
   as: 256 MiB
 
-  # maximum size of core file.
+  # the maximum size of core file.
   core: 0
 
   # CPU time limit, in the form "1h10m10s"
@@ -15,8 +15,7 @@ limits:
   # the maximum size of files that the process may create.
   fsize: 16 MiB
 
-  # specifies a value one greater than the maximum file descriptor number
-  # that can be opened by this process.
+  # the maximum number of open file descriptors.
   nofile: 256
 
 # allowed syscalls, plz see https://github.com/moby/moby/blob/master/profiles/seccomp/default.json
@@ -373,17 +372,11 @@ syscalls:
 fs:
   # readable file list
   rd-files:
-    - .
-    - ~/.gvm/
-    - /dev/
-    - /etc/
-    - /proc/
-    - /sys/
-    - /usr/lib/
-    - /usr/share/
+    - /
 
   # writable file list
   wr-files:
+    - .
 
   # executable file list
   ex-files:

@@ -206,7 +206,7 @@ func GetSyscall(pid int) (*Syscall, error) {
 	if sig, ok := syscallTable[nr]; ok {
 		signature = sig
 	} else {
-		signature = makeSyscallSignature(fmt.Sprintf("not implemented - %s", name))
+		signature = makeSyscallSignature(fmt.Sprintf("signature(%s) not implemented", name))
 	}
 
 	var call = Syscall{pid: pid, regs: regs, nr: nr, name: name, signature: signature}

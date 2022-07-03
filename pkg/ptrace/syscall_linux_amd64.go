@@ -37,7 +37,7 @@ func (c *Syscall) getRetval() int {
 var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_READ:                   makeSyscallSignature("read", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_WRITE:                  makeSyscallSignature("write", ParamTypeAny, ParamTypeAny, ParamTypeAny),
-	unix.SYS_OPEN:                   makeSyscallSignature("open", ParamTypePath, ParamTypeAny, ParamTypeAny),
+	unix.SYS_OPEN:                   makeSyscallSignature("open", ParamTypePath, ParamTypeFlagOpen, ParamTypeAny),
 	unix.SYS_CLOSE:                  makeSyscallSignature("close", ParamTypeAny),
 	unix.SYS_STAT:                   makeSyscallSignature("stat", ParamTypePath, ParamTypeAny),
 	unix.SYS_FSTAT:                  makeSyscallSignature("fstat", ParamTypeAny, ParamTypeAny),

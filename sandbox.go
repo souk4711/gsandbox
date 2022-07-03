@@ -8,8 +8,9 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
-	"github.com/souk4711/gsandbox/pkg/fsfilter"
 	"gopkg.in/yaml.v3"
+
+	"github.com/souk4711/gsandbox/pkg/fsfilter"
 )
 
 type Sandbox struct {

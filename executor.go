@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
+	"strings"
 	"syscall"
 	"time"
 
@@ -185,10 +186,16 @@ func (e *Executor) run() {
 			Maxrss:     maxrss,
 		}
 
-		e.logger.Info(fmt.Sprintf(
-			"proc: exit: status(%d, %s), reason(%s), exitCode(%d), startT(%s), finishT(%s), real(%s), sys(%s), user(%s), rss(%s)",
-			status, status, reason, exitCode, startTime.Format(time.ANSIC), finishTime.Format(time.ANSIC), realTime, systemTime, userTime, humanize.IBytes(uint64(maxrss)),
-		))
+		e.logger.Info("proc: Exit:")
+		e.logger.Info(fmt.Sprintf("          status: %d, %s", status, status))
+		e.logger.Info(fmt.Sprintf("          reason: %s", reason))
+		e.logger.Info(fmt.Sprintf("        exitCode: %d", exitCode))
+		e.logger.Info(fmt.Sprintf("          startT: %s", startTime.Format(time.ANSIC)))
+		e.logger.Info(fmt.Sprintf("         finishT: %s", finishTime.Format(time.ANSIC)))
+		e.logger.Info(fmt.Sprintf("            real: %s", realTime))
+		e.logger.Info(fmt.Sprintf("             sys: %s", systemTime))
+		e.logger.Info(fmt.Sprintf("            user: %s", userTime))
+		e.logger.Info(fmt.Sprintf("             rss: %s", humanize.IBytes(uint64(maxrss))))
 	}
 
 	var setResultWithOK = func(ws *syscall.WaitStatus, rusage *syscall.Rusage) {
@@ -227,7 +234,7 @@ func (e *Executor) run() {
 	defer runtime.UnlockOSThread()
 
 	// start a new process
-	e.logger.Info(fmt.Sprintf("proc: start: prog(%s), args(%s)", e.Prog, e.Args))
+	e.logger.Info(fmt.Sprintf("proc: Start: %s %s", e.Prog, strings.Join(e.Args, " ")))
 	startTime = time.Now()
 	if err := cmd.Start(); err != nil {
 		setResultWithExecFailure(err)
@@ -328,7 +335,7 @@ func (e *Executor) run() {
 
 func (e *Executor) setCmdRlimits(pid int) error {
 	if lim := e.limits.RlimitAS; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit: as(%s)", humanize.IBytes(*lim)))
+		e.logger.Info(fmt.Sprintf("setrlimit:     as => %s", humanize.IBytes(*lim)))
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_AS, &rlim); err != nil {
@@ -337,7 +344,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	}
 
 	if lim := e.limits.RlimitCPU; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit: cpu(%s)", time.Duration(*lim)))
+		e.logger.Info(fmt.Sprintf("setrlimit:    cpu => %s", time.Duration(*lim*uint64(time.Second))))
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_CPU, &rlim); err != nil {
@@ -346,7 +353,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	}
 
 	if lim := e.limits.RlimitCORE; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit: core(%s)", humanize.IBytes(*lim)))
+		e.logger.Info(fmt.Sprintf("setrlimit:   core => %s", humanize.IBytes(*lim)))
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_CORE, &rlim); err != nil {
@@ -355,7 +362,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	}
 
 	if lim := e.limits.RlimitFSIZE; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit: fsize(%s)", humanize.IBytes(*lim)))
+		e.logger.Info(fmt.Sprintf("setrlimit:  fsize => %s", humanize.IBytes(*lim)))
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_FSIZE, &rlim); err != nil {
@@ -364,7 +371,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	}
 
 	if lim := e.limits.RlimitNOFILE; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit: nofile(%d)", *lim))
+		e.logger.Info(fmt.Sprintf("setrlimit: nofile => %d", *lim))
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_NOFILE, &rlim); err != nil {

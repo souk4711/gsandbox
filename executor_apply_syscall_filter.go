@@ -2,10 +2,12 @@ package gsandbox
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
-	"github.com/souk4711/gsandbox/pkg/ptrace"
 	"golang.org/x/sys/unix"
+
+	"github.com/souk4711/gsandbox/pkg/ptrace"
 )
 
 func (e *Executor) applySyscallFilterWhenEnter(curr *ptrace.Syscall) (error, error) {
@@ -49,14 +51,39 @@ func (e *Executor) applySyscallFilterWhenEnter_Allowable(curr *ptrace.Syscall) (
 }
 
 func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Syscall) (error, error) {
-	var dirfd int
+	var dirfd int = unix.AT_FDCWD
 	var path string
 
-	switch curr.GetNR() {
-	case unix.SYS_OPENAT:
-		dirfd = curr.GetArg(0).GetFd()
-		path = curr.GetArg(1).GetPath()
+	var nr = curr.GetNR()
+	switch nr {
+	case unix.SYS_STAT, unix.SYS_LSTAT, unix.SYS_NEWFSTATAT:
+		switch nr {
+		case unix.SYS_STAT, unix.SYS_LSTAT:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+		case unix.SYS_NEWFSTATAT:
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+		}
 		goto CHECK_READABLE
+	case unix.SYS_OPEN, unix.SYS_OPENAT:
+		var flag int
+		switch nr {
+		case unix.SYS_OPEN:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+			flag = curr.GetArg(1).GetFlag()
+		case unix.SYS_OPENAT:
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+			flag = curr.GetArg(2).GetFlag()
+		}
+
+		if flag&^unix.O_CLOEXEC == os.O_RDONLY {
+			goto CHECK_READABLE
+		} else {
+			goto CHECK_WRITEABLE
+		}
 	default:
 		return nil, nil
 	}
@@ -64,6 +91,14 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 CHECK_READABLE:
 	if ok, _ := e.fsfilter.AllowRead(path, dirfd); !ok {
 		err := fmt.Errorf("fs: ReadDisallowed: path(%s), dirfd(%d)", path, dirfd)
+		return err, nil
+	} else {
+		return nil, nil
+	}
+
+CHECK_WRITEABLE:
+	if ok, _ := e.fsfilter.AllowWrite(path, dirfd); !ok {
+		err := fmt.Errorf("fs: WriteDisallowed: path(%s), dirfd(%d)", path, dirfd)
 		return err, nil
 	} else {
 		return nil, nil
@@ -80,20 +115,8 @@ func (e *Executor) applySyscallFilterWhenExit(curr *ptrace.Syscall, prev *ptrace
 	// logging
 	e.logger.Info(fmt.Sprintf("syscall: Exit_:   => %s", retval))
 
-	// filter - fs
-	r1, err := e.applySyscallFilterWhenExit_FileAccessControl(curr, prev)
-	if err != nil || r1 != nil {
-		return err, r1
-	}
+	// TODO: track dirfd, ...
 
 	// ok
-	return nil, nil
-}
-
-func (e *Executor) applySyscallFilterWhenExit_FileAccessControl(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
-	switch curr.GetNR() {
-	case unix.SYS_OPENAT:
-	}
-
 	return nil, nil
 }

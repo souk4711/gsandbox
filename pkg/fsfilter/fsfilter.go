@@ -50,9 +50,9 @@ func (fs *FsFilter) AddAllowedFile(path string, perm int) error {
 	if path[0:1] == "." { // cwd
 		fullpath = cwd
 		mode = perm | int(iofs.ModeDir)
-	} else if path[0:2] == "./" { // cwd relative path
+	} else if len(path) > 1 && path[0:2] == "./" { // cwd relative path
 		fullpath = filepath.Join(cwd, path)
-	} else if path[0:2] == "~/" { // $HOME relative path
+	} else if len(path) > 1 && path[0:2] == "~/" { // $HOME relative path
 		fullpath = filepath.Join(homedir, path[2:])
 	} else if path[0:1] == "/" { // absolute path
 		fullpath = filepath.Clean(path)

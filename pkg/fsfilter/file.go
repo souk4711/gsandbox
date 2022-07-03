@@ -28,7 +28,7 @@ func (f *File) AllowRead(fullpath string) bool {
 }
 
 func (f *File) AllowWrite(fullpath string) bool {
-	return f.allow(fullpath, FILE_RD)
+	return f.allow(fullpath, FILE_WR)
 }
 
 func (f *File) AllowExecute(fullpath string) bool {
