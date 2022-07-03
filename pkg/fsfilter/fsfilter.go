@@ -2,6 +2,8 @@ package fsfilter
 
 import (
 	"fmt"
+	iofs "io/fs"
+	"os"
 	"path/filepath"
 	"syscall"
 
@@ -18,8 +20,41 @@ func NewFsFilter(pid int) *FsFilter {
 	return &FsFilter{pid: pid, trackedFds: make(map[int]File)}
 }
 
-func (fs *FsFilter) TraceFd(fd int, fullpath string) {
-	fs.trackedFds[fd] = File{fullpath: fullpath}
+func (fs *FsFilter) AddAllowedFile(path string, perm int) error {
+	var fullpath string
+	var mode = perm
+
+	// ignore nil value
+	if path == "" {
+		return nil
+	}
+
+	// cwd
+	cwd, err := fs.getCwd()
+	if err != nil {
+		return err
+	}
+
+	// regular or dir
+	if path[len(path)-1:] == "/" {
+		mode = perm & int(iofs.ModeDir)
+	}
+
+	// fullpath
+	if path[0:1] == "." { // cwd
+		fullpath = cwd
+		mode = perm & int(iofs.ModeDir)
+	} else if path[0:2] == "./" { // relative path
+		fullpath = filepath.Join(cwd, path)
+	} else if path[0:1] == "/" { // absolute path
+		fullpath = filepath.Clean(path)
+	} else {
+		return fmt.Errorf("invalid path - %s", path)
+	}
+
+	var file = File{fullpath: fullpath, mode: os.FileMode(mode)}
+	fs.allowedFiles = append(fs.allowedFiles, file)
+	return nil
 }
 
 func (fs *FsFilter) AllowRead(path string, dirfd int) (bool, error) {
@@ -34,6 +69,11 @@ func (fs *FsFilter) AllowExecute(path string, dirfd int) (bool, error) {
 	return fs.allow(path, dirfd, FILE_EX)
 }
 
+func (fs *FsFilter) TraceFd(fd int, fullpath string) {
+	fullpath = filepath.Clean(fullpath)
+	fs.trackedFds[fd] = File{fullpath: fullpath}
+}
+
 func (fs *FsFilter) allow(path string, dirfd int, perm int) (bool, error) {
 	fullpath, err := fs.getAbs(path, dirfd)
 	if err != nil {
@@ -41,7 +81,16 @@ func (fs *FsFilter) allow(path string, dirfd int, perm int) (bool, error) {
 	}
 
 	for _, f := range fs.allowedFiles {
-		if f.AllowExecute(fullpath) {
+		var ok = false
+		switch perm {
+		case FILE_RD:
+			ok = f.AllowRead(fullpath)
+		case FILE_WR:
+			ok = f.AllowWrite(fullpath)
+		case FILE_EX:
+			ok = f.AllowExecute(fullpath)
+		}
+		if ok {
 			return true, nil
 		}
 	}

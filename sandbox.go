@@ -1,7 +1,6 @@
 package gsandbox
 
 import (
-	_ "embed"
 	"os"
 	"strconv"
 	"time"
@@ -12,11 +11,6 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var (
-	//go:embed policy.yml
-	defaultPolicyData []byte
-)
-
 type Sandbox struct {
 	policy Policy
 	logger logr.Logger
@@ -24,7 +18,6 @@ type Sandbox struct {
 
 func NewSandbox() *Sandbox {
 	var s = Sandbox{logger: funcr.New(func(_, _ string) {}, funcr.Options{})}
-	_ = s.LoadPolicyFromData(defaultPolicyData)
 	return &s
 }
 
@@ -72,7 +65,7 @@ func (s *Sandbox) Run(prog string, args []string) *Executor {
 }
 
 func (s *Sandbox) LoadPolicyFromFile(filePath string) error {
-	var data, err = os.ReadFile(filePath)
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}

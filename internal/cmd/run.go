@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,6 +11,11 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/souk4711/gsandbox"
+)
+
+var (
+	//go:embed policy.yml
+	defaultPolicyData []byte
 )
 
 func newRunCommand() *cobra.Command {
@@ -33,7 +39,11 @@ func newRunCommand() *cobra.Command {
 			}
 
 			// Flag: policy-file
-			if policyFilePath != "" {
+			if policyFilePath == "" {
+				if err := sandbox.LoadPolicyFromData(defaultPolicyData); err != nil {
+					return err
+				}
+			} else {
 				if err := sandbox.LoadPolicyFromFile(policyFilePath); err != nil {
 					return err
 				}

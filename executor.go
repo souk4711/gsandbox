@@ -11,6 +11,7 @@ import (
 	"github.com/dustin/go-humanize"
 	"github.com/go-logr/logr"
 
+	"github.com/souk4711/gsandbox/pkg/fsfilter"
 	"github.com/souk4711/gsandbox/pkg/prlimit"
 	"github.com/souk4711/gsandbox/pkg/ptrace"
 )
@@ -41,6 +42,9 @@ type Executor struct {
 
 	// allowedSyscalls specifies the calls that are allowed
 	allowedSyscalls map[string]struct{}
+
+	// fsfilter specifies the Filter
+	fsfilter *fsfilter.FsFilter
 
 	// cmd is the underlying comamnd, once started
 	cmd *exec.Cmd

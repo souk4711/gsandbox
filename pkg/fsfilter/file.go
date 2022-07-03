@@ -37,23 +37,12 @@ func (f *File) AllowExecute(fullpath string) bool {
 
 func (f *File) allow(fullpath string, perm int) bool {
 	fullpath = filepath.Clean(fullpath)
-	if !f.hasEntry(fullpath) {
-		return false
-	} else if !f.hasPerm(perm) {
-		return false
-	} else {
-		return true
-	}
+	return f.hasEntry(fullpath) && f.hasPerm(perm)
 }
 
 func (f *File) hasEntry(fullpath string) bool {
-	if f.fullpath == fullpath { // samefile
-		return true
-	}
-	if f.mode.IsDir() && strings.HasPrefix(f.fullpath, fullpath) { // file/subdir in dir
-		return true
-	}
-	return false
+	return f.fullpath == fullpath || // samefile
+		(f.mode.IsDir() && strings.HasPrefix(f.fullpath, fullpath)) // file/subdir in dir
 }
 
 func (f *File) hasPerm(perm int) bool {
