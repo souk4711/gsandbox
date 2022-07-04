@@ -187,15 +187,15 @@ func (e *Executor) run() {
 		}
 
 		e.logger.Info("proc: Exit:")
-		e.logger.Info(fmt.Sprintf("          status: %d, %s", status, status))
-		e.logger.Info(fmt.Sprintf("          reason: %s", reason))
-		e.logger.Info(fmt.Sprintf("        exitCode: %d", exitCode))
-		e.logger.Info(fmt.Sprintf("          startT: %s", startTime.Format(time.ANSIC)))
-		e.logger.Info(fmt.Sprintf("         finishT: %s", finishTime.Format(time.ANSIC)))
-		e.logger.Info(fmt.Sprintf("            real: %s", realTime))
-		e.logger.Info(fmt.Sprintf("             sys: %s", systemTime))
-		e.logger.Info(fmt.Sprintf("            user: %s", userTime))
-		e.logger.Info(fmt.Sprintf("             rss: %s", humanize.IBytes(uint64(maxrss))))
+		e.logger.Info(fmt.Sprintf("        status: %d, %s", status, status))
+		e.logger.Info(fmt.Sprintf("        reason: %s", reason))
+		e.logger.Info(fmt.Sprintf("      exitCode: %d", exitCode))
+		e.logger.Info(fmt.Sprintf("        startT: %s", startTime.Format(time.ANSIC)))
+		e.logger.Info(fmt.Sprintf("       finishT: %s", finishTime.Format(time.ANSIC)))
+		e.logger.Info(fmt.Sprintf("          real: %s", realTime))
+		e.logger.Info(fmt.Sprintf("           sys: %s", systemTime))
+		e.logger.Info(fmt.Sprintf("          user: %s", userTime))
+		e.logger.Info(fmt.Sprintf("           rss: %s", humanize.IBytes(uint64(maxrss))))
 	}
 
 	var setResultWithOK = func(ws *syscall.WaitStatus, rusage *syscall.Rusage) {

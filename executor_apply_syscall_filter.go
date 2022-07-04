@@ -127,6 +127,30 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		}
 		goto CHECK_READABLE
 
+	// link
+	case unix.SYS_LINK, unix.SYS_LINKAT:
+		switch nr {
+		case unix.SYS_LINK:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(1).GetPath()
+		case unix.SYS_LINKAT:
+			dirfd = curr.GetArg(2).GetFd()
+			path = curr.GetArg(3).GetPath()
+		}
+		goto CHECK_WRITEABLE
+
+	// unlink
+	case unix.SYS_UNLINK, unix.SYS_UNLINKAT:
+		switch nr {
+		case unix.SYS_UNLINK:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+		case unix.SYS_UNLINKAT:
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+		}
+		goto CHECK_WRITEABLE
+
 	// passthrough
 	case unix.SYS_CLOSE:
 		goto PASSTHROUGH
@@ -138,7 +162,7 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 
 CHECK_READABLE:
 	if ok, _ := e.fsfilter.AllowRead(path, dirfd); !ok {
-		err := fmt.Errorf("fs: ReadDisallowed: path(%s), dirfd(%d)", path, dirfd)
+		err := fmt.Errorf("fsfilter: ReadDisallowed: path(%s), dirfd(%d)", path, dirfd)
 		return err, nil
 	} else {
 		e.logger.Info("syscall: Enter:   => fsfilter: ReadAllowed")
@@ -147,7 +171,7 @@ CHECK_READABLE:
 
 CHECK_WRITEABLE:
 	if ok, _ := e.fsfilter.AllowWrite(path, dirfd); !ok {
-		err := fmt.Errorf("fs: WriteDisallowed: path(%s), dirfd(%d)", path, dirfd)
+		err := fmt.Errorf("fsfilter: WriteDisallowed: path(%s), dirfd(%d)", path, dirfd)
 		return err, nil
 	} else {
 		e.logger.Info("syscall: Enter:   => fsfiter: WriteAllowed")

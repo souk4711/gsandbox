@@ -298,7 +298,7 @@ var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_FCHOWNAT:          makeSyscallSignature("fchownat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_FUTIMESAT:         makeSyscallSignature("futimesat", ParamTypeAny, ParamTypePath, ParamTypeAny),
 	unix.SYS_NEWFSTATAT:        makeSyscallSignature("newfstatat", ParamTypeFd, ParamTypePath, ParamTypeAny, ParamTypeAny),
-	unix.SYS_UNLINKAT:          makeSyscallSignature("unlinkat", ParamTypeAny, ParamTypePath, ParamTypeAny),
+	unix.SYS_UNLINKAT:          makeSyscallSignature("unlinkat", ParamTypeFd, ParamTypePath, ParamTypeAny),
 	unix.SYS_RENAMEAT:          makeSyscallSignature("renameat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypePath),
 	unix.SYS_LINKAT:            makeSyscallSignature("linkat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypePath, ParamTypeAny),
 	unix.SYS_SYMLINKAT:         makeSyscallSignature("symlinkat", ParamTypePath, ParamTypeAny, ParamTypePath),
