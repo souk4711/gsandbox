@@ -208,12 +208,18 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		}
 		goto CHECK_WRITEABLE
 
-	// passthrough
+	// skipped
 	case unix.SYS_CLOSE:
-		goto PASSTHROUGH
+		goto SKIPPED
 
-	//
+	// not implemented
 	default:
+		for _, arg := range curr.GetArgs() {
+			if arg.IsParamType(ptrace.ParamTypeFd) || arg.IsParamType(ptrace.ParamTypePath) {
+				err := fmt.Errorf("fsfilter: NotImplemented: %s", curr.GetName())
+				return err, nil
+			}
+		}
 		return nil, nil
 	}
 
@@ -247,8 +253,8 @@ CHECK_WRITEABLE_2:
 		return nil, nil
 	}
 
-PASSTHROUGH:
-	e.logger.Info("syscall: Enter:   => fsfiter: PASSTHROUGH")
+SKIPPED:
+	e.logger.Info("syscall: Enter:   => fsfiter: SKIPPED")
 	return nil, nil
 }
 

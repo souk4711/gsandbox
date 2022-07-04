@@ -93,6 +93,11 @@ func (a *SyscallArg) GetFlag() int {
 	return a.v_int
 }
 
+// Syscall arg - check param type
+func (a *SyscallArg) IsParamType(t ParamType) bool {
+	return a.syscall.signature.params[a.pos] == t
+}
+
 // Syscall arg - helper for read null-terminated string
 func (a *SyscallArg) readString(addr uintptr, max int) (string, error) {
 	if addr == 0 {
