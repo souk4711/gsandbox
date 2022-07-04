@@ -4,6 +4,7 @@ syscalls:
   - brk
   - clone
   - close
+  - connect
   - dup
   - dup2
   - execve
@@ -39,16 +40,31 @@ syscalls:
   - rt_sigreturn
   - set_robust_list
   - set_tid_address
+  - socket
   - sysinfo
   - uname
   - wait4
   - write
 fs:
   rd-files:
+    # dir
     - ./
+    - /root/.local/lib/python3.10/
+    - /usr/bin/lib/python3.10/
     - /usr/lib/
     - /usr/share/locale/
+
+    # regular file
+    - /
     - /etc/ld.so.cache
     - /etc/ld.so.preload
-  ex-files:
-    - /bin/bash
+    - /etc/localtime
+    - /etc/nsswitch.conf
+    - /etc/passwd
+    - /usr/bin/pybuilddir.txt
+    - /usr/bin/python
+    - /usr/bin/python3
+    - /usr/bin/python3.10
+    - /usr/bin/pyvenv.cfg
+    - /usr/bin/Modules/Setup.local
+    - /usr/pyvenv.cfg
