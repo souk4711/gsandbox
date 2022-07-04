@@ -193,6 +193,21 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		}
 		goto CHECK_WRITEABLE
 
+	// chmod
+	case unix.SYS_CHMOD, unix.SYS_FCHMOD, unix.SYS_FCHMODAT:
+		switch nr {
+		case unix.SYS_CHMOD:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+		case unix.SYS_FCHMOD:
+			dirfd = curr.GetArg(0).GetFd()
+			path = ""
+		case unix.SYS_FCHMODAT:
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+		}
+		goto CHECK_WRITEABLE
+
 	// passthrough
 	case unix.SYS_CLOSE:
 		goto PASSTHROUGH
