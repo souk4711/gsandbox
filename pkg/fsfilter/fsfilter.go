@@ -17,7 +17,8 @@ type FsFilter struct {
 }
 
 func NewFsFilter(pid int) *FsFilter {
-	return &FsFilter{pid: pid, trackedFds: make(map[int]File)}
+	fs := &FsFilter{pid: pid, trackedFds: make(map[int]File)}
+	return fs
 }
 
 func (fs *FsFilter) AddAllowedFile(path string, perm int) error {
@@ -77,12 +78,21 @@ func (fs *FsFilter) AllowExecute(path string, dirfd int) (bool, error) {
 	return fs.allow(path, dirfd, FILE_EX)
 }
 
-func (fs *FsFilter) TraceFd(fd int, fullpath string) {
-	fullpath = filepath.Clean(fullpath)
-	fs.trackedFds[fd] = File{fullpath: fullpath}
+func (fs *FsFilter) TraceFd(fd int, path string, dirfd int) error {
+	fullpath, err := fs.getAbs(path, dirfd)
+	if err != nil {
+		return err
+	} else {
+		fs.trackedFds[fd] = File{fullpath: fullpath}
+		return nil
+	}
 }
 
 func (fs *FsFilter) allow(path string, dirfd int, perm int) (bool, error) {
+	if dirfd == unix.Stdin || dirfd == unix.Stdout || dirfd == unix.Stderr {
+		return true, nil
+	}
+
 	fullpath, err := fs.getAbs(path, dirfd)
 	if err != nil {
 		return false, err

@@ -115,8 +115,39 @@ func (e *Executor) applySyscallFilterWhenExit(curr *ptrace.Syscall, prev *ptrace
 	// logging
 	e.logger.Info(fmt.Sprintf("syscall: Exit_:   => %s", retval))
 
-	// TODO: track dirfd, ...
+	// track fd
+	r1, err := e.applySyscallFilterWhenExit_TraceFd(curr, prev)
+	if err != nil || r1 != nil {
+		return r1, err
+	}
 
 	// ok
+	return nil, nil
+}
+
+func (e *Executor) applySyscallFilterWhenExit_TraceFd(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
+	var retval = curr.GetRetval()
+	if retval.HasError() {
+		return nil, nil
+	}
+
+	var dirfd int
+	var path string
+	var nr = curr.GetNR()
+	switch nr {
+	case unix.SYS_OPEN, unix.SYS_OPENAT:
+		switch nr {
+		case unix.SYS_OPEN:
+			dirfd = unix.AT_FDCWD
+			path = prev.GetArg(0).GetPath()
+		case unix.SYS_OPENAT:
+			dirfd = prev.GetArg(0).GetFd()
+			path = prev.GetArg(1).GetPath()
+		}
+		if err := e.fsfilter.TraceFd(retval.GetValue(), path, dirfd); err != nil {
+			return nil, fmt.Errorf("ptrace: %s", err.Error())
+		}
+	}
+
 	return nil, nil
 }
