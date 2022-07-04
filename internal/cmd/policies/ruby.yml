@@ -2,14 +2,14 @@ syscalls:
   - access
   - arch_prctl
   - brk
+  - clock_gettime
   - clone
   - close
   - connect
-  - dup
   - dup2
+  - eventfd2
   - execve
   - exit_group
-  - faccessat2
   - fcntl
   - futex
   - getcwd
@@ -21,6 +21,7 @@ syscalls:
   - getpid
   - getppid
   - getrandom
+  - gettid
   - getuid
   - ioctl
   - lseek
@@ -30,6 +31,7 @@ syscalls:
   - newfstatat
   - openat
   - pipe2
+  - prctl
   - pread64
   - prlimit64
   - read
@@ -38,10 +40,14 @@ syscalls:
   - rt_sigaction
   - rt_sigprocmask
   - rt_sigreturn
+  - sched_getaffinity
   - set_robust_list
   - set_tid_address
+  - sigaltstack
   - socket
   - sysinfo
+  - timer_create
+  - timer_delete
   - uname
   - wait4
   - write
@@ -50,10 +56,10 @@ fs:
   rd-files:
     # dir
     - ./
-    - /root/.local/lib/python3.10/
-    - /usr/bin/lib/python3.10/
-    - /usr/lib/
-    - /usr/share/locale/
+    - /proc/self/
+    - /root/.gem/
+    - /root/.local/share/gem/
+    - /usr/lib/ruby/
 
     # regular file
     - /
@@ -62,10 +68,12 @@ fs:
     - /etc/localtime
     - /etc/nsswitch.conf
     - /etc/passwd
-    - /usr/bin/pybuilddir.txt
-    - /usr/bin/python
-    - /usr/bin/python3
-    - /usr/bin/python3.10
-    - /usr/bin/pyvenv.cfg
-    - /usr/bin/Modules/Setup.local
-    - /usr/pyvenv.cfg
+    - /root
+    - /usr
+    - /usr/lib
+    - /usr/lib/libruby.so.3.0
+    - /usr/lib/libz.so.1
+    - /usr/lib/libgmp.so.10
+    - /usr/lib/libcrypt.so.2
+    - /usr/lib/libm.so.6
+    - /usr/lib/libc.so.6

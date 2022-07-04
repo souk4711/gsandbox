@@ -391,5 +391,3 @@ fs:
 
   # executable file list
   ex-files:
-    # dir
-    - /bin/
