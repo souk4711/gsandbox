@@ -52,7 +52,9 @@ fs:
     - ./
     - /root/.local/lib/python3.10/
     - /usr/bin/lib/python3.10/
-    - /usr/lib/
+    - /usr/lib/python3.10/
+    - /usr/lib/locale/
+    - /usr/lib/gconv/gconv-modules/
     - /usr/share/locale/
 
     # regular file
@@ -68,4 +70,9 @@ fs:
     - /usr/bin/python3.10
     - /usr/bin/pyvenv.cfg
     - /usr/bin/Modules/Setup.local
+    - /usr/lib
+    - /usr/lib/python310.zip
+    - /usr/lib/libpython3.10.so.1.0
+    - /usr/lib/libc.so.6
+    - /usr/lib/libm.so.6
     - /usr/pyvenv.cfg
