@@ -56,10 +56,19 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 
 	var nr = curr.GetNR()
 	switch nr {
+	// read
 	case unix.SYS_READ:
 		dirfd = curr.GetArg(0).GetFd()
 		path = ""
 		goto CHECK_READABLE
+
+	// write
+	case unix.SYS_WRITE:
+		dirfd = curr.GetArg(0).GetFd()
+		path = ""
+		goto CHECK_WRITEABLE
+
+	// open
 	case unix.SYS_OPEN, unix.SYS_OPENAT:
 		var flag int
 		switch nr {
@@ -78,8 +87,8 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		} else {
 			goto CHECK_WRITEABLE
 		}
-	case unix.SYS_CLOSE:
-		goto PASSTHROUGH
+
+	// stat
 	case unix.SYS_STAT, unix.SYS_FSTAT, unix.SYS_LSTAT, unix.SYS_NEWFSTATAT:
 		switch nr {
 		case unix.SYS_STAT, unix.SYS_LSTAT:
@@ -93,6 +102,8 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 			path = curr.GetArg(1).GetPath()
 		}
 		goto CHECK_READABLE
+
+	// access
 	case unix.SYS_ACCESS, unix.SYS_FACCESSAT:
 		switch nr {
 		case unix.SYS_ACCESS:
@@ -103,6 +114,8 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 			path = curr.GetArg(1).GetPath()
 		}
 		goto CHECK_READABLE
+
+	// readlink
 	case unix.SYS_READLINK, unix.SYS_READLINKAT:
 		switch nr {
 		case unix.SYS_READLINK:
@@ -113,8 +126,14 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 			path = curr.GetArg(1).GetPath()
 		}
 		goto CHECK_READABLE
-	default:
+
+	// passthrough
+	case unix.SYS_CLOSE:
 		goto PASSTHROUGH
+
+	//
+	default:
+		return nil, nil
 	}
 
 CHECK_READABLE:
@@ -136,6 +155,7 @@ CHECK_WRITEABLE:
 	}
 
 PASSTHROUGH:
+	e.logger.Info("syscall: Enter:   => fsfiter: PASSTHROUGH")
 	return nil, nil
 }
 
