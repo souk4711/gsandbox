@@ -35,12 +35,12 @@ func (c *Syscall) getRetval() int {
 
 // Linux-4.14.0 System Call Table
 var syscallTable = map[uint]SyscallSignature{
-	unix.SYS_READ:                   makeSyscallSignature("read", ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_READ:                   makeSyscallSignature("read", ParamTypeFd, ParamTypeAny, ParamTypeAny),
 	unix.SYS_WRITE:                  makeSyscallSignature("write", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_OPEN:                   makeSyscallSignature("open", ParamTypePath, ParamTypeFlagOpen, ParamTypeAny),
-	unix.SYS_CLOSE:                  makeSyscallSignature("close", ParamTypeAny),
+	unix.SYS_CLOSE:                  makeSyscallSignature("close", ParamTypeFd),
 	unix.SYS_STAT:                   makeSyscallSignature("stat", ParamTypePath, ParamTypeAny),
-	unix.SYS_FSTAT:                  makeSyscallSignature("fstat", ParamTypeAny, ParamTypeAny),
+	unix.SYS_FSTAT:                  makeSyscallSignature("fstat", ParamTypeFd, ParamTypeAny),
 	unix.SYS_LSTAT:                  makeSyscallSignature("lstat", ParamTypePath, ParamTypeAny),
 	unix.SYS_POLL:                   makeSyscallSignature("poll", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_LSEEK:                  makeSyscallSignature("lseek", ParamTypeAny, ParamTypeAny, ParamTypeAny),
@@ -302,9 +302,9 @@ var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_RENAMEAT:          makeSyscallSignature("renameat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypePath),
 	unix.SYS_LINKAT:            makeSyscallSignature("linkat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypePath, ParamTypeAny),
 	unix.SYS_SYMLINKAT:         makeSyscallSignature("symlinkat", ParamTypePath, ParamTypeAny, ParamTypePath),
-	unix.SYS_READLINKAT:        makeSyscallSignature("readlinkat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypeAny),
+	unix.SYS_READLINKAT:        makeSyscallSignature("readlinkat", ParamTypeFd, ParamTypePath, ParamTypeAny, ParamTypeAny),
 	unix.SYS_FCHMODAT:          makeSyscallSignature("fchmodat", ParamTypeAny, ParamTypePath, ParamTypeAny),
-	unix.SYS_FACCESSAT:         makeSyscallSignature("faccessat", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypeAny),
+	unix.SYS_FACCESSAT:         makeSyscallSignature("faccessat", ParamTypeFd, ParamTypePath, ParamTypeAny, ParamTypeAny),
 	unix.SYS_PSELECT6:          makeSyscallSignature("pselect6", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_PPOLL:             makeSyscallSignature("ppoll", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_UNSHARE:           makeSyscallSignature("unshare", ParamTypeAny),

@@ -52,19 +52,13 @@ func (e *Executor) applySyscallFilterWhenEnter_Allowable(curr *ptrace.Syscall) (
 
 func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Syscall) (error, error) {
 	var dirfd int = unix.AT_FDCWD
-	var path string
+	var path string = "/invalidpath"
 
 	var nr = curr.GetNR()
 	switch nr {
-	case unix.SYS_STAT, unix.SYS_LSTAT, unix.SYS_NEWFSTATAT:
-		switch nr {
-		case unix.SYS_STAT, unix.SYS_LSTAT:
-			dirfd = unix.AT_FDCWD
-			path = curr.GetArg(0).GetPath()
-		case unix.SYS_NEWFSTATAT:
-			dirfd = curr.GetArg(0).GetFd()
-			path = curr.GetArg(1).GetPath()
-		}
+	case unix.SYS_READ:
+		dirfd = curr.GetArg(0).GetFd()
+		path = ""
 		goto CHECK_READABLE
 	case unix.SYS_OPEN, unix.SYS_OPENAT:
 		var flag int
@@ -84,8 +78,43 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		} else {
 			goto CHECK_WRITEABLE
 		}
+	case unix.SYS_CLOSE:
+		goto PASSTHROUGH
+	case unix.SYS_STAT, unix.SYS_FSTAT, unix.SYS_LSTAT, unix.SYS_NEWFSTATAT:
+		switch nr {
+		case unix.SYS_STAT, unix.SYS_LSTAT:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+		case unix.SYS_FSTAT:
+			dirfd = curr.GetArg(0).GetFd()
+			path = ""
+		case unix.SYS_NEWFSTATAT:
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+		}
+		goto CHECK_READABLE
+	case unix.SYS_ACCESS, unix.SYS_FACCESSAT:
+		switch nr {
+		case unix.SYS_ACCESS:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+		case unix.SYS_FACCESSAT:
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+		}
+		goto CHECK_READABLE
+	case unix.SYS_READLINK, unix.SYS_READLINKAT:
+		switch nr {
+		case unix.SYS_READLINK:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+		case unix.SYS_READLINKAT:
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+		}
+		goto CHECK_READABLE
 	default:
-		return nil, nil
+		goto PASSTHROUGH
 	}
 
 CHECK_READABLE:
@@ -93,6 +122,7 @@ CHECK_READABLE:
 		err := fmt.Errorf("fs: ReadDisallowed: path(%s), dirfd(%d)", path, dirfd)
 		return err, nil
 	} else {
+		e.logger.Info("syscall: Enter:   => fsfilter: ReadAllowed")
 		return nil, nil
 	}
 
@@ -101,8 +131,12 @@ CHECK_WRITEABLE:
 		err := fmt.Errorf("fs: WriteDisallowed: path(%s), dirfd(%d)", path, dirfd)
 		return err, nil
 	} else {
+		e.logger.Info("syscall: Enter:   => fsfiter: WriteAllowed")
 		return nil, nil
 	}
+
+PASSTHROUGH:
+	return nil, nil
 }
 
 func (e *Executor) applySyscallFilterWhenExit(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
@@ -113,7 +147,7 @@ func (e *Executor) applySyscallFilterWhenExit(curr *ptrace.Syscall, prev *ptrace
 	}
 
 	// logging
-	e.logger.Info(fmt.Sprintf("syscall: Exit_:   => %s", retval))
+	e.logger.Info(fmt.Sprintf("syscall: Exit_:   => retval: %s", retval))
 
 	// track fd
 	r1, err := e.applySyscallFilterWhenExit_TraceFd(curr, prev)
