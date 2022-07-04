@@ -248,6 +248,18 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		}
 		goto CHECK_READABLE
 
+	// execve
+	case unix.SYS_EXECVE, unix.SYS_EXECVEAT:
+		switch nr {
+		case unix.SYS_EXECVE:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+		case unix.SYS_EXECVEAT:
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+		}
+		goto CHECK_EXECUTABLE
+
 	// skipped
 	case unix.SYS_CLOSE:
 		goto SKIPPED
@@ -290,6 +302,15 @@ CHECK_WRITEABLE_2:
 		return err, nil
 	} else {
 		e.logger.Info("syscall: Enter:   => fsfiter: WriteAllowed")
+		return nil, nil
+	}
+
+CHECK_EXECUTABLE:
+	if ok, _ := e.fsfilter.AllowExecute(path, dirfd); !ok {
+		err := fmt.Errorf("fsfilter: ExecuteDisallowed: path(%s), dirfd(%d)", path, dirfd)
+		return err, nil
+	} else {
+		e.logger.Info("syscall: Enter:   => fsfilter: ExecuteAllowed")
 		return nil, nil
 	}
 

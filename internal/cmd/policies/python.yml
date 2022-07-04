@@ -1,0 +1,53 @@
+syscalls:
+  - access
+  - arch_prctl
+  - brk
+  - clone
+  - close
+  - dup
+  - dup2
+  - execve
+  - faccessat2
+  - fcntl
+  - futex
+  - getcwd
+  - getdents64
+  - getegid
+  - geteuid
+  - getgid
+  - getpgrp
+  - getpid
+  - getppid
+  - getrandom
+  - getuid
+  - ioctl
+  - lseek
+  - mmap
+  - mprotect
+  - munmap
+  - newfstatat
+  - openat
+  - pipe2
+  - pread64
+  - prlimit64
+  - read
+  - readlink
+  - rseq
+  - rt_sigaction
+  - rt_sigprocmask
+  - rt_sigreturn
+  - set_robust_list
+  - set_tid_address
+  - sysinfo
+  - uname
+  - wait4
+  - write
+fs:
+  rd-files:
+    - ./
+    - ~/.gvm/
+    - /etc/ld.so.cache
+    - /etc/ld.so.preload
+    - /usr/lib/
+  ex-files:
+    - /bin/bash

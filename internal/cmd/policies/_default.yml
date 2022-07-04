@@ -372,11 +372,24 @@ syscalls:
 fs:
   # readable file list
   rd-files:
+    # regular file
     - /
+
+    # dir
+    - ./
+    - /dev/
+    - /etc/
+    - /proc/
+    - /root/
+    - /sys/
+    - /usr/
 
   # writable file list
   wr-files:
-    - .
+    # dir
+    - ./
 
   # executable file list
   ex-files:
+    # dir
+    - /bin/

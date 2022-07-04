@@ -48,9 +48,13 @@ func (fs *FsFilter) AddAllowedFile(path string, perm int) error {
 	}
 
 	// fullpath
-	if path[0:1] == "." { // cwd
+	if path == "/" {
+		fullpath = "/"
+		mode = perm // force treat ROOT as a regular file
+	} else if path == "." { // cwd
 		fullpath = cwd
-		mode = perm | int(iofs.ModeDir)
+	} else if path == "~" { // $HOME
+		fullpath = homedir
 	} else if len(path) > 1 && path[0:2] == "./" { // cwd relative path
 		fullpath = filepath.Join(cwd, path)
 	} else if len(path) > 1 && path[0:2] == "~/" { // $HOME relative path
