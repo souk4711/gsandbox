@@ -88,22 +88,31 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 			flag = unix.O_CREAT | unix.O_WRONLY | unix.O_TRUNC
 		}
 
-		if flag&^unix.O_CLOEXEC == os.O_RDONLY {
+		flag = flag &^ unix.O_CLOEXEC
+		flag = flag &^ unix.O_NONBLOCK
+		flag = flag &^ unix.O_TMPFILE
+		if flag == os.O_RDONLY {
 			goto CHECK_READABLE
 		} else {
 			goto CHECK_WRITEABLE
 		}
 
 	// stat
-	case unix.SYS_STAT, unix.SYS_FSTAT, unix.SYS_LSTAT, unix.SYS_NEWFSTATAT:
+	case unix.SYS_STAT, unix.SYS_FSTAT, unix.SYS_LSTAT, unix.SYS_NEWFSTATAT, unix.SYS_STATX:
 		switch nr {
-		case unix.SYS_STAT, unix.SYS_LSTAT:
+		case unix.SYS_STAT:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+		case unix.SYS_LSTAT:
 			dirfd = unix.AT_FDCWD
 			path = curr.GetArg(0).GetPath()
 		case unix.SYS_FSTAT:
 			dirfd = curr.GetArg(0).GetFd()
 			path = ""
 		case unix.SYS_NEWFSTATAT:
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+		case unix.SYS_STATX:
 			dirfd = curr.GetArg(0).GetFd()
 			path = curr.GetArg(1).GetPath()
 		}
@@ -121,7 +130,7 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		}
 		goto CHECK_READABLE
 
-		// rename
+	// rename
 	case unix.SYS_RENAME, unix.SYS_RENAMEAT, unix.SYS_RENAMEAT2:
 		switch nr {
 		case unix.SYS_RENAME:
@@ -129,13 +138,29 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 			path = curr.GetArg(0).GetPath()
 			dirfd2 = unix.AT_FDCWD
 			path2 = curr.GetArg(1).GetPath()
-		case unix.SYS_RENAMEAT, unix.SYS_RENAMEAT2:
+		case unix.SYS_RENAMEAT:
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+			dirfd2 = curr.GetArg(2).GetFd()
+			path2 = curr.GetArg(3).GetPath()
+		case unix.SYS_RENAMEAT2:
 			dirfd = curr.GetArg(0).GetFd()
 			path = curr.GetArg(1).GetPath()
 			dirfd2 = curr.GetArg(2).GetFd()
 			path2 = curr.GetArg(3).GetPath()
 		}
 		goto CHECK_WRITEABLE_2
+
+	case unix.SYS_MKDIR, unix.SYS_MKDIRAT:
+		switch nr {
+		case unix.SYS_MKDIR:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+		case unix.SYS_MKDIRAT:
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+		}
+		goto CHECK_WRITEABLE
 
 	// readlink
 	case unix.SYS_READLINK, unix.SYS_READLINKAT:
@@ -207,6 +232,21 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 			path = curr.GetArg(1).GetPath()
 		}
 		goto CHECK_WRITEABLE
+
+	// getxattr
+	case unix.SYS_GETXATTR, unix.SYS_LGETXATTR, unix.SYS_FGETXATTR:
+		switch nr {
+		case unix.SYS_GETXATTR:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+		case unix.SYS_LGETXATTR:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+		case unix.SYS_FGETXATTR:
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+		}
+		goto CHECK_READABLE
 
 	// skipped
 	case unix.SYS_CLOSE:

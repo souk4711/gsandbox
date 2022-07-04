@@ -367,7 +367,7 @@ var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_PKEY_MPROTECT:     makeSyscallSignature("pkey_mprotect", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_PKEY_ALLOC:        makeSyscallSignature("pkey_alloc", ParamTypeAny, ParamTypeAny),
 	unix.SYS_PKEY_FREE:         makeSyscallSignature("pkey_free", ParamTypeAny),
-	unix.SYS_STATX:             makeSyscallSignature("statx", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_STATX:             makeSyscallSignature("statx", ParamTypeFd, ParamTypePath, ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_IO_URING_SETUP:    makeSyscallSignature("io_uring_setup", ParamTypeAny, ParamTypeAny),
 	unix.SYS_IO_URING_ENTER:    makeSyscallSignature("io_uring_setup", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_FACCESSAT2:        makeSyscallSignature("faccessat2", ParamTypeAny, ParamTypePath, ParamTypeAny, ParamTypeAny),

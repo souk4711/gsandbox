@@ -1,0 +1,28 @@
+syscalls:
+  - access
+  - arch_prctl
+  - brk
+  - close
+  - execve
+  - getrandom
+  - ioctl
+  - mmap
+  - mprotect
+  - munmap
+  - newfstatat
+  - openat
+  - pread64
+  - prlimit64
+  - read
+  - rseq
+  - set_robust_list
+  - set_tid_address
+  - write
+  - exit_group
+fs:
+  rd-files:
+    - .
+    - ~/.gvm/
+    - /etc/ld.so.preload
+    - /etc/ld.so.cache
+    - /usr/lib/

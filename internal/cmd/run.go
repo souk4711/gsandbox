@@ -1,7 +1,7 @@
 package cmd
 
 import (
-	_ "embed"
+	"embed"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -14,12 +14,13 @@ import (
 )
 
 var (
-	//go:embed policy.yml
-	defaultPolicyData []byte
+	//go:embed policies/*
+	policiesFS embed.FS
 )
 
 func newRunCommand() *cobra.Command {
 	var verbose bool
+	var policy string
 	var policyFilePath string
 	var reportFilePath string
 
@@ -40,8 +41,13 @@ func newRunCommand() *cobra.Command {
 
 			// Flag: policy-file
 			if policyFilePath == "" {
-				if err := sandbox.LoadPolicyFromData(defaultPolicyData); err != nil {
+				data, err := policiesFS.ReadFile(fmt.Sprintf("policies/%s.yml", policy))
+				if err != nil {
 					return err
+				} else {
+					if err := sandbox.LoadPolicyFromData(data); err != nil {
+						return err
+					}
 				}
 			} else {
 				if err := sandbox.LoadPolicyFromFile(policyFilePath); err != nil {
@@ -63,6 +69,9 @@ func newRunCommand() *cobra.Command {
 	runCommand.Flags().StringVar(&policyFilePath, "policy-file", "", "use the specified policy configuration file")
 	runCommand.Flags().StringVar(&reportFilePath, "report-file", "", "generate a JSON-formatted report at the specified location")
 	runCommand.Flags().BoolVar(&verbose, "verbose", false, "turn on verbose mode")
+
+	runCommand.Flags().StringVar(&policy, "policy", "_default", "use the specified policy")
+	_ = runCommand.Flags().MarkHidden("policy")
 
 	return runCommand
 }
