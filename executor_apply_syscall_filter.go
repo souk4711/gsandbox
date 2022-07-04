@@ -263,6 +263,8 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 	// skipped
 	case unix.SYS_CLOSE:
 		goto SKIPPED
+	case unix.SYS_DUP, unix.SYS_DUP2, unix.SYS_DUP3:
+		goto SKIPPED
 
 	// not implemented
 	default:
@@ -345,11 +347,11 @@ func (e *Executor) applySyscallFilterWhenExit_TraceFd(curr *ptrace.Syscall, prev
 		return nil, nil
 	}
 
-	var dirfd int
-	var path string
 	var nr = curr.GetNR()
 	switch nr {
 	case unix.SYS_OPEN, unix.SYS_OPENAT, unix.SYS_CREAT:
+		var dirfd int
+		var path string
 		switch nr {
 		case unix.SYS_OPEN:
 			dirfd = unix.AT_FDCWD
@@ -362,6 +364,28 @@ func (e *Executor) applySyscallFilterWhenExit_TraceFd(curr *ptrace.Syscall, prev
 			path = prev.GetArg(0).GetPath()
 		}
 		if err := e.fsfilter.TraceFd(retval.GetValue(), path, dirfd); err != nil {
+			return nil, fmt.Errorf("ptrace: %s", err.Error())
+		}
+	case unix.SYS_DUP, unix.SYS_DUP2, unix.SYS_DUP3:
+		var oldfd int
+		var newfd int
+		switch nr {
+		case unix.SYS_DUP:
+			oldfd = prev.GetArg(0).GetFd()
+			newfd = retval.GetValue()
+		case unix.SYS_DUP2:
+			oldfd = prev.GetArg(0).GetFd()
+			newfd = retval.GetValue()
+		case unix.SYS_DUP3:
+			oldfd = prev.GetArg(0).GetFd()
+			newfd = retval.GetValue()
+		}
+
+		f, err := e.fsfilter.GetTracedFile(oldfd)
+		if err != nil {
+			return nil, fmt.Errorf("ptrace: %s", err.Error())
+		}
+		if err := e.fsfilter.TraceFd(retval.GetValue(), f.GetFullpath(), newfd); err != nil {
 			return nil, fmt.Errorf("ptrace: %s", err.Error())
 		}
 	}

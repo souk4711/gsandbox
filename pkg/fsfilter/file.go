@@ -23,6 +23,10 @@ func NewFile(fullpath string, mode os.FileMode) *File {
 	return &file
 }
 
+func (f *File) GetFullpath() string {
+	return f.fullpath
+}
+
 func (f *File) AllowRead(fullpath string) bool {
 	return f.allow(fullpath, FILE_RD)
 }

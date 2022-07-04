@@ -99,7 +99,6 @@ func (e *Executor) Run() {
 	var cmd = exec.Command(e.Prog, e.Args...)
 	e.cmd = cmd
 
-	cmd.Env = make([]string, 0)
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr

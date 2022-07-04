@@ -373,9 +373,9 @@ fs:
   # readable file list
   rd-files:
     # dir
-    - ./
     - /dev/
     - /etc/
+    - /home/
     - /proc/
     - /root/
     - /sys/
@@ -389,5 +389,14 @@ fs:
     # dir
     - ./
 
+    # regular file
+    - /dev/null
+    - /dev/tty
+
   # executable file list
   ex-files:
+    # dir
+    - ~/
+    - /bin/
+    - /usr/local/bin/
+    - /usr/local/sbin/

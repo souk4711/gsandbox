@@ -82,6 +82,15 @@ func (fs *FsFilter) AllowExecute(path string, dirfd int) (bool, error) {
 	return fs.allow(path, dirfd, FILE_EX)
 }
 
+func (fs *FsFilter) GetTracedFile(fd int) (File, error) {
+	f, ok := fs.trackedFds[fd]
+	if !ok {
+		return File{}, fmt.Errorf("fd(%d) not found", fd)
+	} else {
+		return f, nil
+	}
+}
+
 func (fs *FsFilter) TraceFd(fd int, path string, dirfd int) error {
 	fullpath, err := fs.getAbs(path, dirfd)
 	if err != nil {
