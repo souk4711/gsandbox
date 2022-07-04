@@ -53,6 +53,8 @@ func (e *Executor) applySyscallFilterWhenEnter_Allowable(curr *ptrace.Syscall) (
 func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Syscall) (error, error) {
 	var dirfd int = unix.AT_FDCWD
 	var path string = "/invalidpath"
+	var dirfd2 int = unix.AT_FDCWD
+	var path2 string = "/invalidpath"
 
 	var nr = curr.GetNR()
 	switch nr {
@@ -69,7 +71,7 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		goto CHECK_WRITEABLE
 
 	// open
-	case unix.SYS_OPEN, unix.SYS_OPENAT:
+	case unix.SYS_OPEN, unix.SYS_OPENAT, unix.SYS_CREAT:
 		var flag int
 		switch nr {
 		case unix.SYS_OPEN:
@@ -80,6 +82,10 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 			dirfd = curr.GetArg(0).GetFd()
 			path = curr.GetArg(1).GetPath()
 			flag = curr.GetArg(2).GetFlag()
+		case unix.SYS_CREAT:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+			flag = unix.O_CREAT | unix.O_WRONLY | unix.O_TRUNC
 		}
 
 		if flag&^unix.O_CLOEXEC == os.O_RDONLY {
@@ -115,6 +121,22 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		}
 		goto CHECK_READABLE
 
+		// rename
+	case unix.SYS_RENAME, unix.SYS_RENAMEAT, unix.SYS_RENAMEAT2:
+		switch nr {
+		case unix.SYS_RENAME:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+			dirfd2 = unix.AT_FDCWD
+			path2 = curr.GetArg(1).GetPath()
+		case unix.SYS_RENAMEAT, unix.SYS_RENAMEAT2:
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+			dirfd2 = curr.GetArg(2).GetFd()
+			path2 = curr.GetArg(3).GetPath()
+		}
+		goto CHECK_WRITEABLE_2
+
 	// readlink
 	case unix.SYS_READLINK, unix.SYS_READLINKAT:
 		switch nr {
@@ -132,12 +154,32 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		switch nr {
 		case unix.SYS_LINK:
 			dirfd = unix.AT_FDCWD
-			path = curr.GetArg(1).GetPath()
+			path = curr.GetArg(0).GetPath()
+			dirfd2 = unix.AT_FDCWD
+			path2 = curr.GetArg(1).GetPath()
 		case unix.SYS_LINKAT:
-			dirfd = curr.GetArg(2).GetFd()
-			path = curr.GetArg(3).GetPath()
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+			dirfd2 = curr.GetArg(2).GetFd()
+			path2 = curr.GetArg(3).GetPath()
 		}
-		goto CHECK_WRITEABLE
+		goto CHECK_WRITEABLE_2
+
+	// symlink
+	case unix.SYS_SYMLINK, unix.SYS_SYMLINKAT:
+		switch nr {
+		case unix.SYS_SYMLINK:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+			dirfd2 = unix.AT_FDCWD
+			path2 = curr.GetArg(1).GetPath()
+		case unix.SYS_SYMLINKAT:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+			dirfd2 = curr.GetArg(1).GetFd()
+			path2 = curr.GetArg(2).GetPath()
+		}
+		goto CHECK_WRITEABLE_2
 
 	// unlink
 	case unix.SYS_UNLINK, unix.SYS_UNLINKAT:
@@ -172,6 +214,18 @@ CHECK_READABLE:
 CHECK_WRITEABLE:
 	if ok, _ := e.fsfilter.AllowWrite(path, dirfd); !ok {
 		err := fmt.Errorf("fsfilter: WriteDisallowed: path(%s), dirfd(%d)", path, dirfd)
+		return err, nil
+	} else {
+		e.logger.Info("syscall: Enter:   => fsfiter: WriteAllowed")
+		return nil, nil
+	}
+
+CHECK_WRITEABLE_2:
+	if ok, _ := e.fsfilter.AllowWrite(path, dirfd); !ok {
+		err := fmt.Errorf("fsfilter: WriteDisallowed: path(%s), dirfd(%d), path2(%s), dirfd2(%d)", path, dirfd, path2, dirfd2)
+		return err, nil
+	} else if ok, _ := e.fsfilter.AllowWrite(path2, dirfd2); !ok {
+		err := fmt.Errorf("fsfilter: WriteDisallowed: path(%s), dirfd(%d), path2(%s), dirfd2(%d)", path, dirfd, path2, dirfd2)
 		return err, nil
 	} else {
 		e.logger.Info("syscall: Enter:   => fsfiter: WriteAllowed")
@@ -213,7 +267,7 @@ func (e *Executor) applySyscallFilterWhenExit_TraceFd(curr *ptrace.Syscall, prev
 	var path string
 	var nr = curr.GetNR()
 	switch nr {
-	case unix.SYS_OPEN, unix.SYS_OPENAT:
+	case unix.SYS_OPEN, unix.SYS_OPENAT, unix.SYS_CREAT:
 		switch nr {
 		case unix.SYS_OPEN:
 			dirfd = unix.AT_FDCWD
@@ -221,6 +275,9 @@ func (e *Executor) applySyscallFilterWhenExit_TraceFd(curr *ptrace.Syscall, prev
 		case unix.SYS_OPENAT:
 			dirfd = prev.GetArg(0).GetFd()
 			path = prev.GetArg(1).GetPath()
+		case unix.SYS_CREAT:
+			dirfd = unix.AT_FDCWD
+			path = prev.GetArg(0).GetPath()
 		}
 		if err := e.fsfilter.TraceFd(retval.GetValue(), path, dirfd); err != nil {
 			return nil, fmt.Errorf("ptrace: %s", err.Error())
