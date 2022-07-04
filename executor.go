@@ -245,8 +245,18 @@ func (e *Executor) run() {
 		_ = cmd.Wait()
 	}()
 
-	// set child process resource limit
+	// set trace options
 	var pid = cmd.Process.Pid
+	var flag = 0
+	flag = flag | syscall.PTRACE_O_TRACESYSGOOD
+	flag = flag | syscall.PTRACE_O_TRACEEXIT
+	flag = flag | syscall.PTRACE_O_TRACECLONE | syscall.PTRACE_O_TRACEFORK | syscall.PTRACE_O_TRACEVFORK
+	if err := syscall.PtraceSetOptions(pid, flag); err != nil {
+		setResultWithSandboxFailure(err)
+		return
+	}
+
+	// set child process resource limit
 	if err := e.setCmdRlimits(pid); err != nil {
 		setResultWithSandboxFailure(err)
 		return

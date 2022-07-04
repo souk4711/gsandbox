@@ -372,9 +372,6 @@ syscalls:
 fs:
   # readable file list
   rd-files:
-    # regular file
-    - /
-
     # dir
     - ./
     - /dev/
@@ -383,6 +380,9 @@ fs:
     - /root/
     - /sys/
     - /usr/
+
+    # regular file
+    - /
 
   # writable file list
   wr-files:

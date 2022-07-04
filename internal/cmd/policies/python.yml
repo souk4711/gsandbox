@@ -7,6 +7,7 @@ syscalls:
   - dup
   - dup2
   - execve
+  - exit_group
   - faccessat2
   - fcntl
   - futex
@@ -45,9 +46,9 @@ syscalls:
 fs:
   rd-files:
     - ./
-    - ~/.gvm/
+    - /usr/lib/
+    - /usr/share/locale/
     - /etc/ld.so.cache
     - /etc/ld.so.preload
-    - /usr/lib/
   ex-files:
     - /bin/bash
