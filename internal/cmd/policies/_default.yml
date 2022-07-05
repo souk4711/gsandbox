@@ -398,5 +398,6 @@ fs:
     # dir
     - ~/
     - /bin/
+    - /usr/bin/
     - /usr/local/bin/
     - /usr/local/sbin/

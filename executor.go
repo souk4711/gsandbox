@@ -11,6 +11,7 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/go-logr/logr"
+	"golang.org/x/sys/unix"
 
 	"github.com/souk4711/gsandbox/pkg/fsfilter"
 	"github.com/souk4711/gsandbox/pkg/prlimit"
@@ -284,32 +285,6 @@ func (e *Executor) run() {
 		}
 	}
 
-	//
-	var handleSyscallEnterEvent = func(curr *ptrace.Syscall) error {
-		result, err := e.applySyscallFilterWhenEnter(curr)
-		if err != nil {
-			setResultWithSandboxFailure(err)
-			return err
-		}
-		if result != nil {
-			setResultWithViolation(result)
-			return result
-		}
-		return nil
-	}
-	var handleSyscallLeaveEnter = func(curr *ptrace.Syscall, prev *ptrace.Syscall) error {
-		result, err := e.applySyscallFilterWhenLeave(curr, prev)
-		if err != nil {
-			setResultWithSandboxFailure(err)
-			return err
-		}
-		if result != nil {
-			setResultWithViolation(result)
-			return result
-		}
-		return nil
-	}
-
 	// start trace
 	var ws syscall.WaitStatus
 	var rusage syscall.Rusage
@@ -335,19 +310,44 @@ func (e *Executor) run() {
 			return
 		}
 		if insyscall { // syscall enter event
-			if err := handleSyscallEnterEvent(curr); err != nil {
+			// special case
+			switch curr.GetNR() {
+			case unix.SYS_EXECVE, unix.SYS_EXECVEAT: // the additional notification event of `exec`
+				if err := curr.GetRetval().Read(); err != nil {
+					setResultWithSandboxFailure(err)
+					return
+				}
+				if curr.GetRetval().GetValue() == 0 {
+					goto TRACE_CONTINUE
+				}
+			}
+
+			result, err := e.applySyscallFilterWhenEnter(curr)
+			if err != nil {
+				setResultWithSandboxFailure(err)
+				return
+			}
+			if result != nil {
+				setResultWithViolation(result)
 				return
 			}
 			prev = curr
 			insyscall = false
 		} else { // syscall leave event
-			if err := handleSyscallLeaveEnter(curr, prev); err != nil {
+			result, err := e.applySyscallFilterWhenLeave(curr, prev)
+			if err != nil {
+				setResultWithSandboxFailure(err)
+				return
+			}
+			if result != nil {
+				setResultWithViolation(result)
 				return
 			}
 			prev = nil
 			insyscall = true
 		}
 
+	TRACE_CONTINUE:
 		// Resume tracee execution. Make the kernel stop the child process whenever a
 		// system call entry or exit is made.
 		if err := syscall.PtraceSyscall(pid, 0); err != nil {
