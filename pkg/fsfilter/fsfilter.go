@@ -11,9 +11,9 @@ import (
 )
 
 const (
-	_FILE_FULLPATH_STDIN  = "/gsandbox-fake-path-L21ckaUIMU5IgsymZrrGwg/stdin"
-	_FILE_FULLPATH_STDOUT = "/gsandbox-fake-path-L21ckaUIMU5IgsymZrrGwg/stdout"
-	_FILE_FULLPATH_STDERR = "/gsandbox-fake-path-L21ckaUIMU5IgsymZrrGwg/stderr"
+	_FILE_FULLPATH_STDIN  = "/fsfilter-fake-path-L21ckaUIMU5IgsymZrrGwg/stdin"
+	_FILE_FULLPATH_STDOUT = "/fsfilter-fake-path-L21ckaUIMU5IgsymZrrGwg/stdout"
+	_FILE_FULLPATH_STDERR = "/fsfilter-fake-path-L21ckaUIMU5IgsymZrrGwg/stderr"
 )
 
 type FsFilter struct {
@@ -35,9 +35,9 @@ func NewFsFilter(pid int) *FsFilter {
 	_ = fs.AddAllowedFile(_FILE_FULLPATH_STDERR, FILE_WR)
 
 	// builtin tracked files
-	_ = fs.TrackFd(unix.Stdin, _FILE_FULLPATH_STDIN, unix.AT_FDCWD)
-	_ = fs.TrackFd(unix.Stdout, _FILE_FULLPATH_STDOUT, unix.AT_FDCWD)
-	_ = fs.TrackFd(unix.Stderr, _FILE_FULLPATH_STDERR, unix.AT_FDCWD)
+	_, _ = fs.TrackFd(unix.Stdin, _FILE_FULLPATH_STDIN, unix.AT_FDCWD)
+	_, _ = fs.TrackFd(unix.Stdout, _FILE_FULLPATH_STDOUT, unix.AT_FDCWD)
+	_, _ = fs.TrackFd(unix.Stderr, _FILE_FULLPATH_STDERR, unix.AT_FDCWD)
 
 	return fs
 }
@@ -112,13 +112,14 @@ func (fs *FsFilter) GetTrackdFile(fd int) (File, error) {
 	}
 }
 
-func (fs *FsFilter) TrackFd(fd int, path string, dirfd int) error {
+func (fs *FsFilter) TrackFd(fd int, path string, dirfd int) (File, error) {
 	fullpath, err := fs.getAbs(path, dirfd)
 	if err != nil {
-		return err
+		return File{}, err
 	} else {
-		fs.trackedFds[fd] = File{fullpath: fullpath}
-		return nil
+		var f = File{fullpath: fullpath}
+		fs.trackedFds[fd] = f
+		return f, nil
 	}
 }
 

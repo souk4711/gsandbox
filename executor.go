@@ -312,7 +312,7 @@ func (e *Executor) run() {
 		if insyscall { // syscall enter event
 			// special case
 			switch curr.GetNR() {
-			case unix.SYS_EXECVE, unix.SYS_EXECVEAT: // the additional notification event of `exec`
+			case unix.SYS_EXECVE, unix.SYS_EXECVEAT: // Is an additional notification event of `exec`?
 				if err := curr.GetRetval().Read(); err != nil {
 					setResultWithSandboxFailure(err)
 					return
