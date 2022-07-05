@@ -186,7 +186,7 @@ func (e *Executor) run() {
 			Maxrss:     maxrss,
 		}
 
-		e.logger.Info("proc: Exit:")
+		e.logger.Info("proc: Finished:")
 		e.logger.Info(fmt.Sprintf("        status: %d, %s", status, status))
 		e.logger.Info(fmt.Sprintf("        reason: %s", reason))
 		e.logger.Info(fmt.Sprintf("      exitCode: %d", exitCode))
@@ -284,6 +284,32 @@ func (e *Executor) run() {
 		}
 	}
 
+	//
+	var handleSyscallEnterEvent = func(curr *ptrace.Syscall) error {
+		result, err := e.applySyscallFilterWhenEnter(curr)
+		if err != nil {
+			setResultWithSandboxFailure(err)
+			return err
+		}
+		if result != nil {
+			setResultWithViolation(result)
+			return result
+		}
+		return nil
+	}
+	var handleSyscallLeaveEnter = func(curr *ptrace.Syscall, prev *ptrace.Syscall) error {
+		result, err := e.applySyscallFilterWhenLeave(curr, prev)
+		if err != nil {
+			setResultWithSandboxFailure(err)
+			return err
+		}
+		if result != nil {
+			setResultWithViolation(result)
+			return result
+		}
+		return nil
+	}
+
 	// start trace
 	var ws syscall.WaitStatus
 	var rusage syscall.Rusage
@@ -299,25 +325,7 @@ func (e *Executor) run() {
 			setResult(&ws, &rusage)
 			return
 		} else if ws.Stopped() {
-			switch signal := ws.Signal(); signal {
-			// syscall-trap
-			//
-			//    PTRACE_O_TRACESYSGOOD
-			case syscall.SIGTRAP | 0x80:
-
-			// clone/fork/vfork
-			//
-			//    PTRACE_O_TRACECLONE
-			//    PTRACE_O_TRACEFORK
-			//    PTRACE_O_TRACEVFORK
-			case syscall.SIGSTOP:
-
-			// execve
-			case syscall.SIGTRAP:
-
-			//
-			default:
-			}
+			_ = ws.Signal()
 		}
 
 		// handle ptrace events
@@ -326,27 +334,14 @@ func (e *Executor) run() {
 			setResultWithSandboxFailure(err)
 			return
 		}
-
 		if insyscall { // syscall enter event
-			result, err := e.applySyscallFilterWhenEnter(curr)
-			if err != nil {
-				setResultWithSandboxFailure(err)
-				return
-			}
-			if result != nil {
-				setResultWithViolation(result)
+			if err := handleSyscallEnterEvent(curr); err != nil {
 				return
 			}
 			prev = curr
 			insyscall = false
-		} else { // syscall exit event
-			result, err := e.applySyscallFilterWhenExit(curr, prev)
-			if err != nil {
-				setResultWithSandboxFailure(err)
-				return
-			}
-			if result != nil {
-				setResultWithViolation(result)
+		} else { // syscall leave event
+			if err := handleSyscallLeaveEnter(curr, prev); err != nil {
 				return
 			}
 			prev = nil

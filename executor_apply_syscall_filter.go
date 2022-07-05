@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"syscall"
 
 	"golang.org/x/sys/unix"
 
@@ -261,11 +262,11 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		}
 		goto CHECK_EXECUTABLE
 
-	// skipped
+	// pass through
 	case unix.SYS_CLOSE:
-		goto SKIPPED
+		goto PASSTHROUGH
 	case unix.SYS_DUP, unix.SYS_DUP2, unix.SYS_DUP3:
-		goto SKIPPED
+		goto PASSTHROUGH
 
 	// not implemented
 	default:
@@ -317,32 +318,36 @@ CHECK_EXECUTABLE:
 		return nil, nil
 	}
 
-SKIPPED:
-	e.logger.Info("syscall: Enter:   => fsfiter: SKIPPED")
+PASSTHROUGH:
 	return nil, nil
 }
 
-func (e *Executor) applySyscallFilterWhenExit(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
+func (e *Executor) applySyscallFilterWhenLeave(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
 	// prepare data from regs
 	var retval = curr.GetRetval()
 	if err := retval.Read(); err != nil {
 		return nil, fmt.Errorf("ptrace: %s", err.Error())
 	}
 
-	// logging
-	e.logger.Info(fmt.Sprintf("syscall: Exit_:   => retval: %s", retval))
+	// ENOSYS - which is put into RAX as a default return value by the kernel's syscall entry code
+	if retval.HasError_ENOSYS() {
+		return nil, fmt.Errorf("ptrace - %s", syscall.ENOSYS)
+	}
 
 	// track fd
-	r1, err := e.applySyscallFilterWhenExit_TrackFd(curr, prev)
+	r1, err := e.applySyscallFilterWhenLeave_TrackFd(curr, prev)
 	if err != nil || r1 != nil {
 		return r1, err
 	}
+
+	// logging
+	e.logger.Info(fmt.Sprintf("syscall: Leave:   => retval: %s", retval))
 
 	// ok
 	return nil, nil
 }
 
-func (e *Executor) applySyscallFilterWhenExit_TrackFd(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
+func (e *Executor) applySyscallFilterWhenLeave_TrackFd(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
 	var retval = curr.GetRetval()
 	if retval.HasError() {
 		return nil, nil
@@ -350,6 +355,7 @@ func (e *Executor) applySyscallFilterWhenExit_TrackFd(curr *ptrace.Syscall, prev
 
 	var nr = curr.GetNR()
 	switch nr {
+	// open
 	case unix.SYS_OPEN, unix.SYS_OPENAT, unix.SYS_CREAT:
 		var dirfd int
 		var path string
@@ -367,11 +373,15 @@ func (e *Executor) applySyscallFilterWhenExit_TrackFd(curr *ptrace.Syscall, prev
 		if err := e.fsfilter.TrackFd(retval.GetValue(), path, dirfd); err != nil {
 			return nil, fmt.Errorf("ptrace: %s", err.Error())
 		}
-		e.logger.Info(fmt.Sprintf("syscall: Exit_:   => fsfilter: TRACK: %s <=> %s", ptrace.Fd(retval.GetValue()), path))
+		e.logger.Info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s", ptrace.Fd(retval.GetValue()), path))
+
+	// close
 	case unix.SYS_CLOSE:
 		var fd = prev.GetArg(0).GetFd()
 		e.fsfilter.UntrackFd(fd)
-		e.logger.Info(fmt.Sprintf("syscall: Exit_:   => fsfilter: UNTRACK: %s", ptrace.Fd(fd)))
+		e.logger.Info(fmt.Sprintf("syscall: Leave:   => fsfilter: UNTRACK: %s", ptrace.Fd(fd)))
+
+	// dup
 	case unix.SYS_DUP, unix.SYS_DUP2, unix.SYS_DUP3:
 		var oldfd int
 		var newfd int
@@ -394,7 +404,7 @@ func (e *Executor) applySyscallFilterWhenExit_TrackFd(curr *ptrace.Syscall, prev
 		if err := e.fsfilter.TrackFd(retval.GetValue(), f.GetFullpath(), newfd); err != nil {
 			return nil, fmt.Errorf("ptrace: %s", err.Error())
 		}
-		e.logger.Info(fmt.Sprintf("syscall: Exit_:   => fsfilter: TRACK: %s <=> %s <=> %s", ptrace.Fd(newfd), ptrace.Fd(oldfd), f.GetFullpath()))
+		e.logger.Info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s <=> %s", ptrace.Fd(newfd), ptrace.Fd(oldfd), f.GetFullpath()))
 	}
 
 	return nil, nil

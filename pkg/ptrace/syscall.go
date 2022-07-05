@@ -158,6 +158,11 @@ func (r *SyscallRetval) HasError() bool {
 	return r.value < 0
 }
 
+// Syscall retval - check errno ENOSYS
+func (r *SyscallRetval) HasError_ENOSYS() bool {
+	return r.value == -0x26
+}
+
 // Syscall func
 type Syscall struct {
 	pid       int                // process id
