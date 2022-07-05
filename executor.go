@@ -289,7 +289,7 @@ func (e *Executor) run() {
 	var ws syscall.WaitStatus
 	var rusage syscall.Rusage
 	var prev *ptrace.Syscall = nil
-	var insyscall = false
+	var insyscall = true
 	for {
 		// check wait status
 		_, _ = syscall.Wait4(pid, &ws, 0, &rusage)
@@ -322,6 +322,7 @@ func (e *Executor) run() {
 				}
 			}
 
+			// filter
 			result, err := e.applySyscallFilterWhenEnter(curr)
 			if err != nil {
 				setResultWithSandboxFailure(err)
@@ -334,6 +335,13 @@ func (e *Executor) run() {
 			prev = curr
 			insyscall = false
 		} else { // syscall leave event
+			// special case
+			switch curr.GetNR() {
+			case unix.SYS_EXIT_GROUP:
+				goto TRACE_CONTINUE
+			}
+
+			// filter
 			result, err := e.applySyscallFilterWhenLeave(curr, prev)
 			if err != nil {
 				setResultWithSandboxFailure(err)
