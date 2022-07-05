@@ -72,11 +72,11 @@ func (a *SyscallArg) Read() error {
 			return err
 		}
 		a.v_str = v
-	case ParamTypeFd,
+	case
+		ParamTypeFd,
 		ParamTypeFlagOpen,
 		ParamTypeFlagFnctlCmd:
 		a.v_int = int(int32(regptr))
-
 	}
 
 	return nil

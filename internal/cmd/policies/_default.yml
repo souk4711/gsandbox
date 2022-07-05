@@ -376,10 +376,14 @@ fs:
     - /dev/
     - /etc/
     - /home/
+    - /lib/
+    - /lib64/
+    - /opt/
     - /proc/
     - /root/
     - /sys/
     - /usr/
+    - /var/
 
     # regular file
     - /
@@ -396,8 +400,9 @@ fs:
   # executable file list
   ex-files:
     # dir
-    - ~/
     - /bin/
+    - /sbin/
     - /usr/bin/
+    - /usr/sbin/
     - /usr/local/bin/
     - /usr/local/sbin/

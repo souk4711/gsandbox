@@ -10,6 +10,12 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const (
+	_FILE_FULLPATH_STDIN  = "/gsandbox-fake-path-L21ckaUIMU5IgsymZrrGwg/stdin"
+	_FILE_FULLPATH_STDOUT = "/gsandbox-fake-path-L21ckaUIMU5IgsymZrrGwg/stdout"
+	_FILE_FULLPATH_STDERR = "/gsandbox-fake-path-L21ckaUIMU5IgsymZrrGwg/stderr"
+)
+
 type FsFilter struct {
 	pid          int
 	allowedFiles []File
@@ -19,9 +25,19 @@ type FsFilter struct {
 func NewFsFilter(pid int) *FsFilter {
 	fs := &FsFilter{pid: pid, trackedFds: make(map[int]File)}
 
-	_ = fs.TrackFd(unix.Stdin, "/stdin", unix.AT_FDCWD)
-	_ = fs.TrackFd(unix.Stdout, "/stdout", unix.AT_FDCWD)
-	_ = fs.TrackFd(unix.Stderr, "/stderr", unix.AT_FDCWD)
+	// builtin allowed files - rd-lists
+	_ = fs.AddAllowedFile(_FILE_FULLPATH_STDIN, FILE_RD)
+	_ = fs.AddAllowedFile(_FILE_FULLPATH_STDOUT, FILE_RD)
+	_ = fs.AddAllowedFile(_FILE_FULLPATH_STDERR, FILE_RD)
+
+	// builtin allowed files - wr-lists
+	_ = fs.AddAllowedFile(_FILE_FULLPATH_STDOUT, FILE_WR)
+	_ = fs.AddAllowedFile(_FILE_FULLPATH_STDERR, FILE_WR)
+
+	// builtin tracked files
+	_ = fs.TrackFd(unix.Stdin, _FILE_FULLPATH_STDIN, unix.AT_FDCWD)
+	_ = fs.TrackFd(unix.Stdout, _FILE_FULLPATH_STDOUT, unix.AT_FDCWD)
+	_ = fs.TrackFd(unix.Stderr, _FILE_FULLPATH_STDERR, unix.AT_FDCWD)
 
 	return fs
 }
