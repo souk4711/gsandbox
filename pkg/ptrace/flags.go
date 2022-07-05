@@ -8,6 +8,7 @@ import (
 
 type Fd int
 type FlagOpen int
+type FlagFcntlCmd int
 
 func (fd Fd) String() string {
 	switch int(fd) {
@@ -25,8 +26,8 @@ func (fd Fd) String() string {
 }
 
 func (f FlagOpen) String() string {
+	var currFlag = int(f)
 	var str = ""
-	var currFlag int = int(f)
 	var update = func(testFlag int) {
 		if currFlag&testFlag != 0 {
 			str += FlagOpenConstant(testFlag).String() + "|"
@@ -59,4 +60,8 @@ func (f FlagOpen) String() string {
 	}
 
 	return str
+}
+
+func (f FlagFcntlCmd) String() string {
+	return FlagFcntlCmdConstant(int(f)).String()
 }

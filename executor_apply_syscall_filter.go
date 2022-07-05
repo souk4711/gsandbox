@@ -267,6 +267,8 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		goto PASSTHROUGH
 	case unix.SYS_DUP, unix.SYS_DUP2, unix.SYS_DUP3:
 		goto PASSTHROUGH
+	case unix.SYS_FCNTL:
+		goto PASSTHROUGH
 
 	// not implemented
 	default:
@@ -405,6 +407,35 @@ func (e *Executor) applySyscallFilterWhenLeave_TrackFd(curr *ptrace.Syscall, pre
 			return nil, fmt.Errorf("ptrace: %s", err.Error())
 		}
 		e.logger.Info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s <=> %s", ptrace.Fd(newfd), ptrace.Fd(oldfd), f.GetFullpath()))
+
+	// fcntl
+	case unix.SYS_FCNTL:
+		var oldfd = prev.GetArg(0).GetFd()
+		var cmd = prev.GetArg(1).GetFlag()
+		fmt.Fprint(os.Stderr, " ??????/ ", oldfd, "  ", cmd, " \n")
+		switch cmd {
+		case unix.F_GETFD:
+			break
+		case unix.F_SETFD:
+			break
+		case unix.F_GETFL:
+			break
+		case unix.F_SETFL:
+			break
+		case unix.F_DUPFD:
+			var newfd = retval.GetValue()
+			f, err := e.fsfilter.GetTrackdFile(oldfd)
+			if err != nil {
+				return nil, fmt.Errorf("ptrace: %s", err.Error())
+			}
+			if err := e.fsfilter.TrackFd(newfd, f.GetFullpath(), unix.AT_FDCWD); err != nil {
+				return nil, fmt.Errorf("ptrace: %s", err.Error())
+			}
+			e.logger.Info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s <=> %s", ptrace.Fd(newfd), ptrace.Fd(oldfd), f.GetFullpath()))
+		default:
+			err := fmt.Errorf("fsfilter: NotImplemented: %s", curr.GetName())
+			return err, nil
+		}
 	}
 
 	return nil, nil

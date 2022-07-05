@@ -18,6 +18,11 @@ type FsFilter struct {
 
 func NewFsFilter(pid int) *FsFilter {
 	fs := &FsFilter{pid: pid, trackedFds: make(map[int]File)}
+
+	_ = fs.TrackFd(unix.Stdin, "/stdin", unix.AT_FDCWD)
+	_ = fs.TrackFd(unix.Stdout, "/stdout", unix.AT_FDCWD)
+	_ = fs.TrackFd(unix.Stderr, "/stderr", unix.AT_FDCWD)
+
 	return fs
 }
 
@@ -106,10 +111,6 @@ func (fs *FsFilter) UntrackFd(fd int) {
 }
 
 func (fs *FsFilter) allow(path string, dirfd int, perm int) (bool, error) {
-	if dirfd == unix.Stdin || dirfd == unix.Stdout || dirfd == unix.Stderr {
-		return true, nil
-	}
-
 	fullpath, err := fs.getAbs(path, dirfd)
 	if err != nil {
 		return false, err

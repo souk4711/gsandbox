@@ -12,11 +12,12 @@ func _() {
 	_ = x[ParamTypePath-1]
 	_ = x[ParamTypeFd-2]
 	_ = x[ParamTypeFlagOpen-3]
+	_ = x[ParamTypeFlagFnctlCmd-4]
 }
 
-const _ParamType_name = "ParamTypeAnyParamTypePathParamTypeFdParamTypeFlagOpen"
+const _ParamType_name = "ParamTypeAnyParamTypePathParamTypeFdParamTypeFlagOpenParamTypeFlagFnctlCmd"
 
-var _ParamType_index = [...]uint8{0, 12, 25, 36, 53}
+var _ParamType_index = [...]uint8{0, 12, 25, 36, 53, 74}
 
 func (i ParamType) String() string {
 	if i < 0 || i >= ParamType(len(_ParamType_index)-1) {

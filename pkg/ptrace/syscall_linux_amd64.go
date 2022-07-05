@@ -107,7 +107,7 @@ var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_MSGSND:                 makeSyscallSignature("msgsnd", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_MSGRCV:                 makeSyscallSignature("msgrcv", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_MSGCTL:                 makeSyscallSignature("msgctl", ParamTypeAny, ParamTypeAny, ParamTypeAny),
-	unix.SYS_FCNTL:                  makeSyscallSignature("fcntl", ParamTypeAny, ParamTypeAny, ParamTypeAny),
+	unix.SYS_FCNTL:                  makeSyscallSignature("fcntl", ParamTypeFd, ParamTypeFlagFnctlCmd, ParamTypeAny),
 	unix.SYS_FLOCK:                  makeSyscallSignature("flock", ParamTypeAny, ParamTypeAny),
 	unix.SYS_FSYNC:                  makeSyscallSignature("fsync", ParamTypeAny),
 	unix.SYS_FDATASYNC:              makeSyscallSignature("fdatasync", ParamTypeAny),
