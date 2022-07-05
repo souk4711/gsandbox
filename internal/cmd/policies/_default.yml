@@ -1,3 +1,6 @@
+# set "enabled" to inherit the environment variable from the parent process
+env: "enabled"
+
 # set "enabled" to allow process to access to the host network stack
 share-net:
 

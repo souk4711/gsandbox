@@ -32,6 +32,14 @@ func (s *Sandbox) Run(prog string, args []string) *Executor {
 	var policy = s.policy
 	var executor = NewExecutor(prog, args).WithLogger(s.logger)
 
+	// env
+	if policy.InheritEnv == ENABLED {
+		var nilEnv []string
+		executor.Env = nilEnv
+	} else {
+		executor.Env = make([]string, 0)
+	}
+
 	// set flags
 	if policy.ShareNetwork == ENABLED {
 		executor.SetFlag(FLAG_SHARE_NETWORK, ENABLED)

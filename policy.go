@@ -2,6 +2,7 @@ package gsandbox
 
 type Policy struct {
 	ShareNetwork    string           `yaml:"share-net"`
+	InheritEnv      string           `yaml:"env"`
 	Limits          PolicyLimits     `yaml:"limits"`
 	AllowedSyscalls []string         `yaml:"syscalls"`
 	FileSystem      PolicyFileSystem `yaml:"fs"`

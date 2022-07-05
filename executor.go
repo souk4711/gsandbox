@@ -33,6 +33,9 @@ type Executor struct {
 	// Args holds command line arguments
 	Args []string
 
+	// Env specifies the environment of the process
+	Env []string
+
 	// Result contains information about an exited comamnd, available after a call to #Run
 	Result
 
@@ -100,6 +103,7 @@ func (e *Executor) Run() {
 	var cmd = exec.Command(e.Prog, e.Args...)
 	e.cmd = cmd
 
+	cmd.Env = e.Env
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
