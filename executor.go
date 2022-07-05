@@ -247,9 +247,11 @@ func (e *Executor) run() {
 	// set trace options
 	var pid = cmd.Process.Pid
 	var flag = 0
-	flag = flag | syscall.PTRACE_O_TRACESYSGOOD
-	flag = flag | syscall.PTRACE_O_TRACEEXIT
-	flag = flag | syscall.PTRACE_O_TRACECLONE | syscall.PTRACE_O_TRACEFORK | syscall.PTRACE_O_TRACEVFORK
+	flag = flag | syscall.PTRACE_O_TRACESYSGOOD // makes it easy for the tracer to distinguish normal traps from those caused by a system call
+	flag = flag | syscall.PTRACE_O_TRACEEXIT    // stop the tracee at exit
+	flag = flag | syscall.PTRACE_O_TRACECLONE   // automatically trace clone(2) children
+	flag = flag | syscall.PTRACE_O_TRACEFORK    // automatically trace fork(2) children
+	flag = flag | syscall.PTRACE_O_TRACEVFORK   // automatically trace vfork(2) children
 	if err := syscall.PtraceSetOptions(pid, flag); err != nil {
 		setResultWithSandboxFailure(err)
 		return
@@ -297,7 +299,25 @@ func (e *Executor) run() {
 			setResult(&ws, &rusage)
 			return
 		} else if ws.Stopped() {
-			_ = ws.Signal()
+			switch signal := ws.Signal(); signal {
+			// syscall-trap
+			//
+			//    PTRACE_O_TRACESYSGOOD
+			case syscall.SIGTRAP | 0x80:
+
+			// clone/fork/vfork
+			//
+			//    PTRACE_O_TRACECLONE
+			//    PTRACE_O_TRACEFORK
+			//    PTRACE_O_TRACEVFORK
+			case syscall.SIGSTOP:
+
+			// execve
+			case syscall.SIGTRAP:
+
+			//
+			default:
+			}
 		}
 
 		// handle ptrace events

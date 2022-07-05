@@ -26,33 +26,37 @@ func (fd Fd) String() string {
 
 func (f FlagOpen) String() string {
 	var str = ""
-	var update = func(flag FlagOpenConstant) {
-		if int(f) == int(flag) || int(f)&int(flag) != 0 {
-			str += flag.String() + "|"
+	var currFlag int = int(f)
+	var update = func(testFlag int) {
+		if currFlag&testFlag != 0 {
+			str += FlagOpenConstant(testFlag).String() + "|"
 		}
+		currFlag = currFlag &^ int(testFlag)
 	}
 
-	update(O_RDONLY)
-	update(O_WRONLY)
-	update(O_RDWR)
-	update(O_APPEND)
-	update(O_ASYNC)
-	update(O_CLOEXEC)
-	update(O_CREAT)
-	update(O_DIRECT)
-	update(O_DSYNC)
-	update(O_EXCL)
-	update(O_NOATIME)
-	update(O_NOCTTY)
-	update(O_NONBLOCK)
-	update(O_PATH)
-	update(O_SYNC)
-	update(O_TMPFILE)
-	update(O_TRUNC)
+	update(unix.O_APPEND)
+	update(unix.O_ASYNC)
+	update(unix.O_CLOEXEC)
+	update(unix.O_CREAT)
+	update(unix.O_DIRECT)
+	update(unix.O_DSYNC)
+	update(unix.O_EXCL)
+	update(unix.O_NOATIME)
+	update(unix.O_NOCTTY)
+	update(unix.O_NONBLOCK)
+	update(unix.O_PATH)
+	update(unix.O_SYNC)
+	update(unix.O_TMPFILE)
+	update(unix.O_TRUNC)
 
-	if str == "" {
-		return fmt.Sprint(int(f))
-	} else {
-		return str[:len(str)-1]
+	switch currFlag {
+	case unix.O_RDONLY:
+		str += "O_RDONLY"
+	case unix.O_WRONLY:
+		str += "O_WRONLY"
+	case unix.O_RDWR:
+		str += "O_RDWR"
 	}
+
+	return str
 }

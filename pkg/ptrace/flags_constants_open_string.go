@@ -8,9 +8,6 @@ func _() {
 	// An "invalid array index" compiler error signifies that the constant values have changed.
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
-	_ = x[O_RDONLY-0]
-	_ = x[O_WRONLY-1]
-	_ = x[O_RDWR-2]
 	_ = x[O_APPEND-1024]
 	_ = x[O_ASYNC-8192]
 	_ = x[O_CLOEXEC-524288]
@@ -25,6 +22,9 @@ func _() {
 	_ = x[O_SYNC-1052672]
 	_ = x[O_TMPFILE-4259840]
 	_ = x[O_TRUNC-512]
+	_ = x[O_RDONLY-0]
+	_ = x[O_WRONLY-1]
+	_ = x[O_RDWR-2]
 }
 
 const _FlagOpenConstant_name = "O_RDONLYO_WRONLYO_RDWRO_CREATO_EXCLO_NOCTTYO_TRUNCO_APPENDO_NONBLOCKO_DSYNCO_ASYNCO_DIRECTO_NOATIMEO_CLOEXECO_SYNCO_PATHO_TMPFILE"

@@ -151,6 +151,7 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		}
 		goto CHECK_WRITEABLE_2
 
+	// mkdir
 	case unix.SYS_MKDIR, unix.SYS_MKDIRAT:
 		switch nr {
 		case unix.SYS_MKDIR:
@@ -332,7 +333,7 @@ func (e *Executor) applySyscallFilterWhenExit(curr *ptrace.Syscall, prev *ptrace
 	e.logger.Info(fmt.Sprintf("syscall: Exit_:   => retval: %s", retval))
 
 	// track fd
-	r1, err := e.applySyscallFilterWhenExit_TraceFd(curr, prev)
+	r1, err := e.applySyscallFilterWhenExit_TrackFd(curr, prev)
 	if err != nil || r1 != nil {
 		return r1, err
 	}
@@ -341,7 +342,7 @@ func (e *Executor) applySyscallFilterWhenExit(curr *ptrace.Syscall, prev *ptrace
 	return nil, nil
 }
 
-func (e *Executor) applySyscallFilterWhenExit_TraceFd(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
+func (e *Executor) applySyscallFilterWhenExit_TrackFd(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
 	var retval = curr.GetRetval()
 	if retval.HasError() {
 		return nil, nil
@@ -363,9 +364,14 @@ func (e *Executor) applySyscallFilterWhenExit_TraceFd(curr *ptrace.Syscall, prev
 			dirfd = unix.AT_FDCWD
 			path = prev.GetArg(0).GetPath()
 		}
-		if err := e.fsfilter.TraceFd(retval.GetValue(), path, dirfd); err != nil {
+		if err := e.fsfilter.TrackFd(retval.GetValue(), path, dirfd); err != nil {
 			return nil, fmt.Errorf("ptrace: %s", err.Error())
 		}
+		e.logger.Info(fmt.Sprintf("syscall: Exit_:   => fsfilter: TRACK: %s <=> %s", ptrace.Fd(retval.GetValue()), path))
+	case unix.SYS_CLOSE:
+		var fd = prev.GetArg(0).GetFd()
+		e.fsfilter.UntrackFd(fd)
+		e.logger.Info(fmt.Sprintf("syscall: Exit_:   => fsfilter: UNTRACK: %s", ptrace.Fd(fd)))
 	case unix.SYS_DUP, unix.SYS_DUP2, unix.SYS_DUP3:
 		var oldfd int
 		var newfd int
@@ -381,13 +387,14 @@ func (e *Executor) applySyscallFilterWhenExit_TraceFd(curr *ptrace.Syscall, prev
 			newfd = retval.GetValue()
 		}
 
-		f, err := e.fsfilter.GetTracedFile(oldfd)
+		f, err := e.fsfilter.GetTrackdFile(oldfd)
 		if err != nil {
 			return nil, fmt.Errorf("ptrace: %s", err.Error())
 		}
-		if err := e.fsfilter.TraceFd(retval.GetValue(), f.GetFullpath(), newfd); err != nil {
+		if err := e.fsfilter.TrackFd(retval.GetValue(), f.GetFullpath(), newfd); err != nil {
 			return nil, fmt.Errorf("ptrace: %s", err.Error())
 		}
+		e.logger.Info(fmt.Sprintf("syscall: Exit_:   => fsfilter: TRACK: %s <=> %s <=> %s", ptrace.Fd(newfd), ptrace.Fd(oldfd), f.GetFullpath()))
 	}
 
 	return nil, nil
