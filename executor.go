@@ -2,6 +2,7 @@ package gsandbox
 
 import (
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"runtime"
@@ -33,8 +34,17 @@ type Executor struct {
 	// Args holds command line arguments
 	Args []string
 
-	// Env specifies the environment of the process
+	// Env specifies the environment of the process, plz see os/exec.Cmd#Env
 	Env []string
+
+	// Stdin specifies the process's standard input, plz see os/exec.Cmd#Stdin
+	Stdin io.Reader
+
+	// Stdout specify the process's standard output, plz see os/exec.Cmd#Stdout
+	Stdout io.Writer
+
+	// Stderr specify the process's standard error, plz see os/exec.Cmd#Stderr
+	Stderr io.Writer
 
 	// Result contains information about an exited comamnd, available after a call to #Run
 	Result
@@ -63,7 +73,7 @@ type Executor struct {
 
 func NewExecutor(prog string, args []string) *Executor {
 	var e = Executor{
-		Prog: prog, Args: args,
+		Prog: prog, Args: args, cmd: exec.Command(prog, args...),
 		flags: make(map[string]string), allowedSyscalls: make(map[string]struct{}),
 	}
 	return &e
@@ -100,13 +110,11 @@ func (e *Executor) SetFilterFileList(perm int, files []string) {
 }
 
 func (e *Executor) Run() {
-	var cmd = exec.Command(e.Prog, e.Args...)
-	e.cmd = cmd
-
+	var cmd = e.cmd
 	cmd.Env = e.Env
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdin = e.Stdin
+	cmd.Stdout = e.Stdout
+	cmd.Stderr = e.Stderr
 
 	e.setCmdProcAttr()
 	e.run()

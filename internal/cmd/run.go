@@ -56,7 +56,10 @@ func newRunCommand() *cobra.Command {
 			}
 
 			// run
-			var executor = sandbox.Run(args[0], args[1:])
+			var executor = sandbox.NewExecutor(args[0], args[1:])
+			executor.Stdout = os.Stdout
+			executor.Stderr = os.Stderr
+			executor.Run()
 
 			// Flag: report-file
 			var resultData, _ = json.Marshal(executor.Result)

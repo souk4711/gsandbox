@@ -28,7 +28,7 @@ func (s *Sandbox) WithLogger(logger logr.Logger) *Sandbox {
 	return s
 }
 
-func (s *Sandbox) Run(prog string, args []string) *Executor {
+func (s *Sandbox) NewExecutor(prog string, args []string) *Executor {
 	var policy = s.policy
 	var executor = NewExecutor(prog, args).WithLogger(s.logger)
 
@@ -75,7 +75,6 @@ func (s *Sandbox) Run(prog string, args []string) *Executor {
 	executor.SetFilterFileList(fsfilter.FILE_WR, policy.FileSystem.WritableFiles)
 	executor.SetFilterFileList(fsfilter.FILE_EX, policy.FileSystem.ExecutableFiles)
 
-	executor.Run()
 	return executor
 }
 
