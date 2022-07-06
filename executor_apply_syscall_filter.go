@@ -154,6 +154,18 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		}
 		goto CHECK_WRITEABLE_2
 
+		// chdir
+	case unix.SYS_CHDIR, unix.SYS_FCHDIR:
+		switch nr {
+		case unix.SYS_CHDIR:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+		case unix.SYS_FCHDIR:
+			dirfd = curr.GetArg(0).GetFd()
+			path = ""
+		}
+		goto CHECK_READABLE
+
 	// mkdir
 	case unix.SYS_MKDIR, unix.SYS_MKDIRAT:
 		switch nr {

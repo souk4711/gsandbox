@@ -116,7 +116,7 @@ var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_GETDENTS:               makeSyscallSignature("getdents", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_GETCWD:                 makeSyscallSignature("getcwd", ParamTypeAny, ParamTypeAny),
 	unix.SYS_CHDIR:                  makeSyscallSignature("chdir", ParamTypePath),
-	unix.SYS_FCHDIR:                 makeSyscallSignature("fchdir", ParamTypeAny),
+	unix.SYS_FCHDIR:                 makeSyscallSignature("fchdir", ParamTypeFd),
 	unix.SYS_RENAME:                 makeSyscallSignature("rename", ParamTypePath, ParamTypePath),
 	unix.SYS_MKDIR:                  makeSyscallSignature("mkdir", ParamTypePath, ParamTypeAny),
 	unix.SYS_RMDIR:                  makeSyscallSignature("rmdir", ParamTypePath),
