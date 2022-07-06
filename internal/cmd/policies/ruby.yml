@@ -1,3 +1,7 @@
+# This is a Gsandbox policy configuration file for /usr/bin/ruby. Example usage:
+#
+#   $ gsandbox run --policy=ruby -- /usr/bin/ruby main.rb
+
 syscalls:
   - access
   - arch_prctl

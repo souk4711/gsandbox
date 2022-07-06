@@ -1,0 +1,41 @@
+# This is a Gsandbox policy configuration file for /usr/bin/g++. Example usage:
+#
+#   $ /usr/bin/g++ main.cpp -o main
+#   $ gsandbox run --policy=cpp -- ./main
+
+syscalls:
+  - access
+  - arch_prctl
+  - brk
+  - close
+  - execve
+  - exit_group
+  - futex
+  - getrandom
+  - ioctl
+  - mmap
+  - mprotect
+  - munmap
+  - newfstatat
+  - openat
+  - pread64
+  - prlimit64
+  - read
+  - rseq
+  - set_robust_list
+  - set_tid_address
+  - write
+
+fs:
+  rd-files:
+  # dir
+    - ./
+
+  # regular file
+    - /
+    - /etc/ld.so.cache
+    - /etc/ld.so.preload
+    - /usr/lib/libstdc++.so.6
+    - /usr/lib/libm.so.6
+    - /usr/lib/libgcc_s.so.1
+    - /usr/lib/libc.so.6

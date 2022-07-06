@@ -1,13 +1,17 @@
+# This is a Gsandbox policy configuration file for any program. Example usage:
+#
+#   $ gsandbox run -- ls -lah
+
 # set "enabled" to inherit the environment variable from the parent process
 env: "enabled"
 
 # set "enabled" to allow process to access to the host network stack
-share-net:
+share-net: "enabled"
 
 # process resource limits
 limits:
   # the maximum size of the process's virtual memory (address space).
-  as: 256 MiB
+  as: 1 GiB
 
   # the maximum size of core file.
   core: 0
