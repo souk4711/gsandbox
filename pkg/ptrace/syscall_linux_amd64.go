@@ -173,7 +173,7 @@ var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_PERSONALITY:            makeSyscallSignature("personality", ParamTypeAny),
 	unix.SYS_USTAT:                  makeSyscallSignature("ustat", ParamTypeAny, ParamTypeAny),
 	unix.SYS_STATFS:                 makeSyscallSignature("statfs", ParamTypePath, ParamTypeAny),
-	unix.SYS_FSTATFS:                makeSyscallSignature("fstatfs", ParamTypeAny, ParamTypeAny),
+	unix.SYS_FSTATFS:                makeSyscallSignature("fstatfs", ParamTypeFd, ParamTypeAny),
 	unix.SYS_SYSFS:                  makeSyscallSignature("sysfs", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_GETPRIORITY:            makeSyscallSignature("getpriority", ParamTypeAny, ParamTypeAny),
 	unix.SYS_SETPRIORITY:            makeSyscallSignature("setpriority", ParamTypeAny, ParamTypeAny, ParamTypeAny),

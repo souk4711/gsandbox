@@ -249,6 +249,18 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		}
 		goto CHECK_WRITEABLE
 
+	// statfs
+	case unix.SYS_STATFS, unix.SYS_FSTATFS:
+		switch nr {
+		case unix.SYS_STATFS:
+			dirfd = unix.AT_FDCWD
+			path = curr.GetArg(0).GetPath()
+		case unix.SYS_FSTATFS:
+			dirfd = curr.GetArg(0).GetFd()
+			path = ""
+		}
+		goto CHECK_READABLE
+
 	// getxattr
 	case unix.SYS_GETXATTR, unix.SYS_LGETXATTR, unix.SYS_FGETXATTR:
 		switch nr {
