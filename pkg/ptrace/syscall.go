@@ -15,6 +15,7 @@ type ParamType int
 //go:generate stringer -type=ParamType -output=syscall_paramtype_string.go
 const (
 	ParamTypeAny          ParamType = iota // placeholder
+	ParamTypeInt                           // int
 	ParamTypePath                          // a pointer to char* path
 	ParamTypeFd                            // int fd
 	ParamTypeFlagOpen                      // flag for open
@@ -47,6 +48,8 @@ type SyscallArg struct {
 func (a *SyscallArg) String() string {
 	var paramType = a.syscall.signature.params[a.pos]
 	switch paramType {
+	case ParamTypeInt:
+		return fmt.Sprintf("%d", a.GetInt())
 	case ParamTypePath:
 		return fmt.Sprintf("'%s'", a.GetPath())
 	case ParamTypeFd:
@@ -73,6 +76,7 @@ func (a *SyscallArg) Read() error {
 		}
 		a.v_str = v
 	case
+		ParamTypeInt,
 		ParamTypeFd,
 		ParamTypeFlagOpen,
 		ParamTypeFlagFnctlCmd:
@@ -80,6 +84,11 @@ func (a *SyscallArg) Read() error {
 	}
 
 	return nil
+}
+
+// Syscall arg - convert value to int
+func (a *SyscallArg) GetInt() int {
+	return a.v_int
 }
 
 // Syscall arg - convert value to Path

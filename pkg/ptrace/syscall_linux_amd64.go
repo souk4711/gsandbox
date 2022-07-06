@@ -266,7 +266,7 @@ var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_CLOCK_GETTIME:    makeSyscallSignature("clock_gettime", ParamTypeAny, ParamTypeAny),
 	unix.SYS_CLOCK_GETRES:     makeSyscallSignature("clock_getres", ParamTypeAny, ParamTypeAny),
 	unix.SYS_CLOCK_NANOSLEEP:  makeSyscallSignature("clock_nanosleep", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
-	unix.SYS_EXIT_GROUP:       makeSyscallSignature("exit_group", ParamTypeAny),
+	unix.SYS_EXIT_GROUP:       makeSyscallSignature("exit_group", ParamTypeInt),
 	unix.SYS_EPOLL_WAIT:       makeSyscallSignature("epoll_wait", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_EPOLL_CTL:        makeSyscallSignature("epoll_ctl", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_TGKILL:           makeSyscallSignature("tgkill", ParamTypeAny, ParamTypeAny, ParamTypeAny),

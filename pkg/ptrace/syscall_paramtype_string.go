@@ -9,15 +9,16 @@ func _() {
 	// Re-run the stringer command to generate them again.
 	var x [1]struct{}
 	_ = x[ParamTypeAny-0]
-	_ = x[ParamTypePath-1]
-	_ = x[ParamTypeFd-2]
-	_ = x[ParamTypeFlagOpen-3]
-	_ = x[ParamTypeFlagFnctlCmd-4]
+	_ = x[ParamTypeInt-1]
+	_ = x[ParamTypePath-2]
+	_ = x[ParamTypeFd-3]
+	_ = x[ParamTypeFlagOpen-4]
+	_ = x[ParamTypeFlagFnctlCmd-5]
 }
 
-const _ParamType_name = "ParamTypeAnyParamTypePathParamTypeFdParamTypeFlagOpenParamTypeFlagFnctlCmd"
+const _ParamType_name = "ParamTypeAnyParamTypeIntParamTypePathParamTypeFdParamTypeFlagOpenParamTypeFlagFnctlCmd"
 
-var _ParamType_index = [...]uint8{0, 12, 25, 36, 53, 74}
+var _ParamType_index = [...]uint8{0, 12, 24, 37, 48, 65, 86}
 
 func (i ParamType) String() string {
 	if i < 0 || i >= ParamType(len(_ParamType_index)-1) {
