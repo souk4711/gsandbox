@@ -91,3 +91,45 @@ $ go run gsandbox-demo.go
   "maxrss": 5000
 }
 ```
+
+### Command-line Tool
+
+Install gsandbox cli
+
+```sh
+$ go install github.com/souk4711/gsandbox/cmd/gsandbox@latest
+```
+
+Run
+
+```sh
+$ gsandbox run --report-file=proc-metadata.json >/dev/null -- ls
+$ cat proc-metadata.json
+{
+  "status": 1,
+  "reason": "",
+  "exitCode": 0,
+  "startTime": "2022-07-06T15:43:34.358342213+08:00",
+  "finishTime": "2022-07-06T15:43:34.365066121+08:00",
+  "realTime": 6723821,
+  "systemTime": 674000,
+  "userTime": 1305000,
+  "maxrss": 2996
+}
+```
+
+You can get help, use
+
+```sh
+$ gsandbox run --help
+Run a program in a sandbox
+
+Usage:
+  gsandbox run [flags] -- PROGRAM [ARG...]
+
+Flags:
+  -h, --help                 help for run
+      --policy-file string   use the specified policy configuration file
+      --report-file string   generate a JSON-formatted report at the specified location
+      --verbose              turn on verbose mode
+```

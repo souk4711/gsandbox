@@ -154,7 +154,7 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 		}
 		goto CHECK_WRITEABLE_2
 
-		// chdir
+	// chdir
 	case unix.SYS_CHDIR, unix.SYS_FCHDIR:
 		switch nr {
 		case unix.SYS_CHDIR:
