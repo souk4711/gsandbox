@@ -139,10 +139,11 @@ func (e *Executor) setCmdProcAttr() {
 	}
 
 	e.cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags:  uintptr(cloneFlags),
-		UidMappings: uidMappings,
-		GidMappings: gidMappings,
-		Ptrace:      true,
+		Cloneflags:   uintptr(cloneFlags),
+		Unshareflags: syscall.CLONE_NEWNS,
+		UidMappings:  uidMappings,
+		GidMappings:  gidMappings,
+		Ptrace:       true,
 	}
 }
 

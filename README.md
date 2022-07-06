@@ -15,7 +15,7 @@ $ go mod init gsandbox-demo
 $ go get github.com/souk4711/gsandbox
 ```
 
-Create a main file
+Create `main.go` file
 
 ```go
 package main
@@ -78,7 +78,7 @@ func main() {
 Run
 
 ```sh
-$ go run gsandbox-demo.go
+$ go run main.go
 {
   "status": 1,
   "reason": "",
@@ -94,7 +94,7 @@ $ go run gsandbox-demo.go
 
 ### Command-line Tool
 
-Install gsandbox cli
+Install `gsandbox` cli
 
 ```sh
 $ go install github.com/souk4711/gsandbox/cmd/gsandbox@latest
@@ -118,7 +118,7 @@ $ cat proc-metadata.json
 }
 ```
 
-You can get help, use
+Get help
 
 ```sh
 $ gsandbox run --help
@@ -132,4 +132,45 @@ Flags:
       --policy-file string   use the specified policy configuration file
       --report-file string   generate a JSON-formatted report at the specified location
       --verbose              turn on verbose mode
+  ...
 ```
+
+## Technology Involved
+
+### Linux Namespace
+
+Gsandbox use [syscall.SysProcAttr#Cloneflags] to implement a limited linux namespace version to isolate
+process resources. The following flags are used when start a new program:
+
+  * syscall.CLONE_NEWNS - isolate filesystem mount points
+  * syscall.CLONE_NEWUTS - isolate hostname and domainname
+  * syscall.CLONE_NEWIPC - isolate interprocess communication (IPC) resources
+  * syscall.CLONE_NEWPID - isolate the PID number space
+  * syscall.CLONE_NEWNET - isolate network interfaces
+  * syscall.CLONE_NEWUSER - isolate UID/GID number spaces
+
+### Rlimit
+
+Gsandbox use [prlimit] to set the resource limits of program. The following resource type is used:
+
+  * RLIMIT_AS - the maximum size of the process's virtual memory (address space)
+  * RLIMIT_CORE - the maximum size of core file
+  * RLIMIT_CPU - CPU time limit
+  * RLIMIT_FSIZE - the maximum size of files that the process may create
+  * RLIMIT_NOFILE - the maximum number of open file descriptors
+
+### Ptrace
+
+Gsandbox use [ptrace] to trace every system call in order to
+
+  * restrict syscall access using a whiltelist
+  * restrict file access using a series of rules
+
+## License
+
+available as open source under the terms of the [MIT License](https://opensource.org/licenses/MIT).
+
+
+[syscall.SysProcAttr#Cloneflags]:https://pkg.go.dev/syscall#SysProcAttr
+[prlimit]:https://man7.org/linux/man-pages/man2/prlimit.2.html
+[ptrace]:https://man7.org/linux/man-pages/man2/ptrace.2.html
