@@ -9,11 +9,12 @@ type Policy struct {
 }
 
 type PolicyLimits struct {
-	AS     string `yaml:"as,omitempty"`
-	CORE   string `yaml:"core,omitempty"`
-	CPU    string `yaml:"cpu,omitempty"`
-	FSIZE  string `yaml:"fsize,omitempty"`
-	NOFILE string `yaml:"nofile,omitempty"`
+	AS        string `yaml:"as,omitempty"`
+	CORE      string `yaml:"core,omitempty"`
+	CPU       string `yaml:"cpu,omitempty"`
+	FSIZE     string `yaml:"fsize,omitempty"`
+	NOFILE    string `yaml:"nofile,omitempty"`
+	WALLCLOCK string `yaml:"wallclock,omitempty"`
 }
 
 type PolicyFileSystem struct {

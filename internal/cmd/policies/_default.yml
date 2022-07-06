@@ -25,6 +25,9 @@ limits:
   # the maximum number of open file descriptors.
   nofile: 256
 
+  # wall-clock time limit, in the form "1h10m10s"
+  wallclock:
+
 # allowed syscalls, plz see https://github.com/moby/moby/blob/master/profiles/seccomp/default.json
 syscalls:
   - accept

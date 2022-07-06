@@ -1,6 +1,7 @@
 package gsandbox
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
@@ -73,7 +74,7 @@ type Executor struct {
 
 func NewExecutor(prog string, args []string) *Executor {
 	var e = Executor{
-		Prog: prog, Args: args, cmd: exec.Command(prog, args...),
+		Prog: prog, Args: args,
 		flags: make(map[string]string), allowedSyscalls: make(map[string]struct{}),
 	}
 	return &e
@@ -110,14 +111,50 @@ func (e *Executor) SetFilterFileList(perm int, files []string) {
 }
 
 func (e *Executor) Run() {
-	var cmd = e.cmd
+	// Because the go runtime forks traced processes with PTRACE_TRACEME
+	// we need to maintain the parent-child relationship for ptrace to work.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	// logging
+	e.logger.Info(fmt.Sprintf("proc: Start: %s %s", e.Prog, strings.Join(e.Args, " ")))
+
+	// timeout
+	var cmd *exec.Cmd
+	if lim := e.limits.LimitWallClockTime; lim != nil {
+		e.logger.Info(fmt.Sprintf("setrlimit: walltime => %s", time.Duration(*lim*uint64(time.Second))))
+		var ctx, cancel = context.WithTimeout(context.Background(), time.Duration(*lim)*time.Second)
+		defer cancel()
+		cmd = exec.CommandContext(ctx, e.Prog, e.Args...)
+	} else {
+		cmd = exec.Command(e.Prog, e.Args...)
+	}
+
+	// env, stdin, stdout, stderr
 	cmd.Env = e.Env
 	cmd.Stdin = e.Stdin
 	cmd.Stdout = e.Stdout
 	cmd.Stderr = e.Stderr
 
+	// proc-attr
+	e.cmd = cmd
 	e.setCmdProcAttr()
+
+	// run
 	e.run()
+
+	// logging
+	r := e.Result
+	e.logger.Info("proc: Finished:")
+	e.logger.Info(fmt.Sprintf("        status: %d, %s", r.Status, r.Status))
+	e.logger.Info(fmt.Sprintf("        reason: %s", r.Reason))
+	e.logger.Info(fmt.Sprintf("      exitCode: %d", r.ExitCode))
+	e.logger.Info(fmt.Sprintf("        startT: %s", r.StartTime.Format(time.ANSIC)))
+	e.logger.Info(fmt.Sprintf("       finishT: %s", r.FinishTime.Format(time.ANSIC)))
+	e.logger.Info(fmt.Sprintf("          real: %s", r.RealTime))
+	e.logger.Info(fmt.Sprintf("           sys: %s", r.SystemTime))
+	e.logger.Info(fmt.Sprintf("          user: %s", r.UserTime))
+	e.logger.Info(fmt.Sprintf("           rss: %s", humanize.IBytes(uint64(r.Maxrss))))
 }
 
 func (e *Executor) setCmdProcAttr() {
@@ -155,6 +192,7 @@ func (e *Executor) run() {
 	var finishTime time.Time
 	var systemTime time.Duration
 	var userTime time.Duration
+	var realTime time.Duration
 	var maxrss int64
 	var cmd = e.cmd
 
@@ -187,7 +225,13 @@ func (e *Executor) run() {
 			maxrss = rusage.Maxrss
 		}
 
-		var realTime = finishTime.Sub(startTime)
+		if finishTime.IsZero() {
+			finishTime = time.Now()
+			realTime = finishTime.Sub(startTime)
+		} else {
+			realTime = finishTime.Sub(startTime)
+		}
+
 		e.Result = Result{
 			Status:     status,
 			Reason:     reason,
@@ -199,17 +243,6 @@ func (e *Executor) run() {
 			UserTime:   userTime,
 			Maxrss:     maxrss,
 		}
-
-		e.logger.Info("proc: Finished:")
-		e.logger.Info(fmt.Sprintf("        status: %d, %s", status, status))
-		e.logger.Info(fmt.Sprintf("        reason: %s", reason))
-		e.logger.Info(fmt.Sprintf("      exitCode: %d", exitCode))
-		e.logger.Info(fmt.Sprintf("        startT: %s", startTime.Format(time.ANSIC)))
-		e.logger.Info(fmt.Sprintf("       finishT: %s", finishTime.Format(time.ANSIC)))
-		e.logger.Info(fmt.Sprintf("          real: %s", realTime))
-		e.logger.Info(fmt.Sprintf("           sys: %s", systemTime))
-		e.logger.Info(fmt.Sprintf("          user: %s", userTime))
-		e.logger.Info(fmt.Sprintf("           rss: %s", humanize.IBytes(uint64(maxrss))))
 	}
 
 	var setResultWithOK = func(ws *syscall.WaitStatus, rusage *syscall.Rusage) {
@@ -242,13 +275,7 @@ func (e *Executor) run() {
 		setResult(nil, nil)
 	}
 
-	// Because the go runtime forks traced processes with PTRACE_TRACEME
-	// we need to maintain the parent-child relationship for ptrace to work.
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
 	// start a new process
-	e.logger.Info(fmt.Sprintf("proc: Start: %s %s", e.Prog, strings.Join(e.Args, " ")))
 	startTime = time.Now()
 	if err := cmd.Start(); err != nil {
 		setResultWithExecFailure(err)
@@ -381,7 +408,7 @@ func (e *Executor) run() {
 
 func (e *Executor) setCmdRlimits(pid int) error {
 	if lim := e.limits.RlimitAS; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit:     as => %s", humanize.IBytes(*lim)))
+		e.logger.Info(fmt.Sprintf("setrlimit:       as => %s", humanize.IBytes(*lim)))
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_AS, &rlim); err != nil {
@@ -390,7 +417,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	}
 
 	if lim := e.limits.RlimitCPU; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit:    cpu => %s", time.Duration(*lim*uint64(time.Second))))
+		e.logger.Info(fmt.Sprintf("setrlimit:      cpu => %s", time.Duration(*lim*uint64(time.Second))))
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_CPU, &rlim); err != nil {
@@ -399,7 +426,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	}
 
 	if lim := e.limits.RlimitCORE; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit:   core => %s", humanize.IBytes(*lim)))
+		e.logger.Info(fmt.Sprintf("setrlimit:     core => %s", humanize.IBytes(*lim)))
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_CORE, &rlim); err != nil {
@@ -408,7 +435,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	}
 
 	if lim := e.limits.RlimitFSIZE; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit:  fsize => %s", humanize.IBytes(*lim)))
+		e.logger.Info(fmt.Sprintf("setrlimit:    fsize => %s", humanize.IBytes(*lim)))
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_FSIZE, &rlim); err != nil {
@@ -417,7 +444,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	}
 
 	if lim := e.limits.RlimitNOFILE; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit: nofile => %d", *lim))
+		e.logger.Info(fmt.Sprintf("setrlimit:   nofile => %d", *lim))
 
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_NOFILE, &rlim); err != nil {

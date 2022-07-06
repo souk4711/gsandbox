@@ -63,6 +63,10 @@ func (s *Sandbox) NewExecutor(prog string, args []string) *Executor {
 	if v, err := strconv.ParseUint(policy.Limits.NOFILE, 10, 64); err == nil {
 		limits.RlimitNOFILE = &v
 	}
+	if duration, err := time.ParseDuration(policy.Limits.WALLCLOCK); err == nil {
+		var v = uint64(duration.Seconds())
+		limits.LimitWallClockTime = &v
+	}
 	executor.SetLimits(limits)
 
 	// set allowed syscalls
