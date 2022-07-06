@@ -62,7 +62,7 @@ func newRunCommand() *cobra.Command {
 			executor.Run()
 
 			// Flag: report-file
-			var resultData, _ = json.Marshal(executor.Result)
+			var resultData, _ = json.MarshalIndent(executor.Result, "", "  ")
 			var _ = os.WriteFile(reportFilePath, resultData, 0644)
 			return nil
 		},

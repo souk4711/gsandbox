@@ -28,10 +28,10 @@ syscalls:
 
 fs:
   rd-files:
-  # dir
+    # dir
     - ./
 
-  # regular file
+    # regular file
     - /
     - /etc/ld.so.cache
     - /etc/ld.so.preload
