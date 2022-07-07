@@ -13,7 +13,6 @@ import (
 
 	"github.com/dustin/go-humanize"
 	"github.com/go-logr/logr"
-	"golang.org/x/sys/unix"
 
 	"github.com/souk4711/gsandbox/pkg/fsfilter"
 	"github.com/souk4711/gsandbox/pkg/prlimit"
@@ -59,20 +58,17 @@ type Executor struct {
 	// allowedSyscalls specifies the calls that are allowed
 	allowedSyscalls map[string]struct{}
 
-	// fsfilter specifies the Filter
-	fsfilter *fsfilter.FsFilter
-	rdFiles  []string
-	wrFiles  []string
-	exFiles  []string
-
-	// multiple processes info
-	wpid           int
-	wpid2Insyscall map[int]bool
-	wpid2Prev      map[int]*ptrace.Syscall
-	// wpid2Fsfilter map[int]*fsfilter.FsFilter
+	// (rd|wr|ex)Files specifies file acesss rules
+	rdFiles []string
+	wrFiles []string
+	exFiles []string
 
 	// cmd is the underlying comamnd, once started
 	cmd *exec.Cmd
+
+	// .
+	traceePid      int
+	traceeFsfilter map[int]*fsfilter.FsFilter
 
 	// logger
 	logger logr.Logger
@@ -82,7 +78,7 @@ func NewExecutor(prog string, args []string) *Executor {
 	var e = Executor{
 		Prog: prog, Args: args,
 		flags: make(map[string]string), allowedSyscalls: make(map[string]struct{}),
-		wpid2Insyscall: make(map[int]bool), wpid2Prev: make(map[int]*ptrace.Syscall),
+		traceeFsfilter: make(map[int]*fsfilter.FsFilter),
 	}
 	return &e
 }
@@ -149,10 +145,9 @@ func (e *Executor) Run() {
 
 	// run
 	e.run()
-	e.wpid = 0
 
 	// logging
-	r := e.Result
+	r := &e.Result
 	e.info("proc: Finished:")
 	e.info(fmt.Sprintf("        status: %d, %s", r.Status, r.Status))
 	e.info(fmt.Sprintf("        reason: %s", r.Reason))
@@ -188,264 +183,37 @@ func (e *Executor) setCmdProcAttr() {
 		Unshareflags: syscall.CLONE_NEWNS,
 		UidMappings:  uidMappings,
 		GidMappings:  gidMappings,
-		Ptrace:       true,
-		Setpgid:      true,
+		Ptrace:       true, // required by ptrace
+		Setpgid:      true, // required by ptrace
 	}
 }
 
 func (e *Executor) run() {
-	var status Status
-	var reason string
-	var exitCode int
-	var startTime time.Time
-	var finishTime time.Time
-	var systemTime time.Duration
-	var userTime time.Duration
-	var realTime time.Duration
-	var maxrss int64
-	var cmd = e.cmd
-
-	var setResult = func(ws *syscall.WaitStatus, rusage *syscall.Rusage) {
-		if ws != nil {
-			if ws.Signaled() {
-				switch ws.Signal() {
-				case syscall.SIGXCPU, syscall.SIGKILL:
-					status = StatusTimeLimitExceeded
-				case syscall.SIGXFSZ:
-					status = StatusOutputLimitExceeded
-				case syscall.SIGSYS:
-					status = StatusViolation
-				default:
-					status = StatusSignaled
-				}
-
-				reason = fmt.Sprintf("signal: %s", ws.Signal())
-				exitCode = int(ws.Signal())
-			} else {
-				exitCode = ws.ExitStatus()
-			}
-		} else {
-			exitCode = -1
-		}
-
-		if rusage != nil {
-			systemTime = time.Duration(rusage.Stime.Nano()) * time.Nanosecond
-			userTime = time.Duration(rusage.Utime.Nano()) * time.Nanosecond
-			maxrss = rusage.Maxrss
-		}
-
-		if finishTime.IsZero() {
-			finishTime = time.Now()
-			realTime = finishTime.Sub(startTime)
-		} else {
-			realTime = finishTime.Sub(startTime)
-		}
-
-		e.Result = Result{
-			Status:     status,
-			Reason:     reason,
-			ExitCode:   exitCode,
-			StartTime:  startTime,
-			FinishTime: finishTime,
-			RealTime:   realTime,
-			SystemTime: systemTime,
-			UserTime:   userTime,
-			Maxrss:     maxrss,
-		}
-	}
-
-	var setResultWithOK = func(ws *syscall.WaitStatus, rusage *syscall.Rusage) {
-		finishTime = time.Now()
-		status = StatusOK
-		reason = ""
-		setResult(ws, rusage)
-	}
-
-	var setResultWithSandboxFailure = func(err error) {
-		finishTime = time.Now()
-		status = StatusSandboxFailure
-		reason = err.Error()
-		setResult(nil, nil)
-		_ = cmd.Process.Kill() // ensure child process will not block the parent process
-	}
-
-	var setResultWithViolation = func(err error) {
-		finishTime = time.Now()
-		status = StatusViolation
-		reason = err.Error()
-		setResult(nil, nil)
-		_ = cmd.Process.Kill() // ensure child process will not block the parent process
-	}
-
-	var setResultWithExecFailure = func(err error) {
-		finishTime = time.Now()
-		status = StatusExitFailure
-		reason = err.Error()
-		setResult(nil, nil)
-	}
-
 	// start a new process
-	startTime = time.Now()
-	if err := cmd.Start(); err != nil {
-		setResultWithExecFailure(err)
+	e.Result.StartTime = time.Now()
+	if err := e.cmd.Start(); err != nil {
+		e.setResultWithExecFailure(err)
 		return
 	}
 	defer func() { // avoid child process become a zombie process
-		_ = cmd.Wait()
+		_ = e.cmd.Wait()
 	}()
 
-	// set trace options
-	var pid = cmd.Process.Pid
-	var flag = 0
-	flag = flag | syscall.PTRACE_O_TRACESYSGOOD // makes it easy for the tracer to distinguish normal traps from those caused by a system call
-	flag = flag | syscall.PTRACE_O_TRACEEXIT    // stop the tracee at exit
-	//flag = flag | syscall.PTRACE_O_TRACECLONE   // automatically trace clone(2) children
-	flag = flag | syscall.PTRACE_O_TRACEFORK  // automatically trace fork(2) children
-	flag = flag | syscall.PTRACE_O_TRACEVFORK // automatically trace vfork(2) children
-	if err := syscall.PtraceSetOptions(pid, flag); err != nil {
-		setResultWithSandboxFailure(err)
-		return
-	}
-
 	// set child process resource limit
+	var pid = e.cmd.Process.Pid
 	if err := e.setCmdRlimits(pid); err != nil {
-		setResultWithSandboxFailure(err)
+		e.setResultWithSandboxFailure(err)
 		return
 	}
 
 	// set fsfilter
-	e.fsfilter = fsfilter.NewFsFilter(pid)
-	for _, file := range e.rdFiles {
-		if err := e.fsfilter.AddAllowedFile(file, fsfilter.FILE_RD); err != nil {
-			setResultWithSandboxFailure(err)
-			return
-		}
-	}
-	for _, file := range e.wrFiles {
-		if err := e.fsfilter.AddAllowedFile(file, fsfilter.FILE_WR); err != nil {
-			setResultWithSandboxFailure(err)
-			return
-		}
-	}
-	for _, file := range e.exFiles {
-		if err := e.fsfilter.AddAllowedFile(file, fsfilter.FILE_EX); err != nil {
-			setResultWithSandboxFailure(err)
-			return
-		}
+	if err := e.setFsfilter(pid); err != nil {
+		e.setResultWithExecFailure(err)
+		return
 	}
 
-	// start trace
-	var ws syscall.WaitStatus
-	var rusage syscall.Rusage
-	var prev *ptrace.Syscall
-	var insyscall bool
-	var firstClone = true
-	for {
-		wpid, err := syscall.Wait4(-pid, &ws, 0, &rusage)
-		if err != nil {
-			setResultWithSandboxFailure(err)
-			return
-		}
-
-		// reterive process info
-		e.wpid = wpid
-		if v, ok := e.wpid2Insyscall[wpid]; ok {
-			insyscall = v
-		} else {
-			insyscall = true
-		}
-		if v, ok := e.wpid2Prev[wpid]; ok {
-			prev = v
-		} else {
-			prev = nil
-		}
-
-		// check wait status
-		if e.wpid == pid {
-			if ws.Exited() {
-				setResultWithOK(&ws, &rusage)
-				return
-			} else if ws.Signaled() {
-				setResult(&ws, &rusage)
-				return
-			} else if ws.Stopped() {
-				_ = ws.Signal()
-			}
-		}
-
-		// handle ptrace events
-		curr, err := ptrace.GetSyscall(e.wpid)
-
-		if err != nil {
-			setResultWithSandboxFailure(err)
-			return
-		}
-		if insyscall { // syscall enter event
-			// special case
-			switch curr.GetNR() {
-			case unix.SYS_EXECVE, unix.SYS_EXECVEAT: // Is an additional notification event of `exec`?
-				if err := curr.GetRetval().Read(); err != nil {
-					setResultWithSandboxFailure(err)
-					return
-				}
-				if curr.GetRetval().GetValue() == 0 {
-					goto TRACE_CONTINUE
-				}
-			case unix.SYS_CLONE:
-				if err := curr.GetRetval().Read(); err != nil {
-					setResultWithSandboxFailure(err)
-					return
-				}
-				if curr.GetRetval().GetValue() == 0 { // Is an additional notification event of `clone`? - for child?
-					goto TRACE_CONTINUE
-				} else if curr.GetRetval().GetValue() == -38 && firstClone { // Is an additional notification event of `clone`? - for parent?
-					firstClone = false
-					goto TRACE_CONTINUE
-				}
-			}
-
-			// filter
-			result, err := e.applySyscallFilterWhenEnter(curr)
-			if err != nil {
-				setResultWithSandboxFailure(err)
-				return
-			}
-			if result != nil {
-				setResultWithViolation(result)
-				return
-			}
-			e.wpid2Prev[e.wpid] = curr
-			e.wpid2Insyscall[e.wpid] = false
-		} else { // syscall leave event
-			// special case
-			switch curr.GetNR() {
-			case unix.SYS_EXIT_GROUP:
-				goto TRACE_CONTINUE
-			}
-
-			// filter
-			result, err := e.applySyscallFilterWhenLeave(curr, prev)
-			if err != nil {
-				setResultWithSandboxFailure(err)
-				return
-			}
-			if result != nil {
-				setResultWithViolation(result)
-				return
-			}
-			e.wpid2Prev[e.wpid] = nil
-			e.wpid2Insyscall[e.wpid] = true
-		}
-
-	TRACE_CONTINUE:
-		// Resume tracee execution. Make the kernel stop the child process whenever a
-		// system call entry or exit is made.
-		if err := syscall.PtraceSyscall(e.wpid, 0); err != nil {
-			err = fmt.Errorf("ptrace: Syscall: %s", err.Error())
-			setResultWithSandboxFailure(err)
-			return
-		}
-	}
+	// start ptrace
+	ptrace.Trace(pid, e)
 }
 
 func (e *Executor) setCmdRlimits(pid int) error {
@@ -492,6 +260,100 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	return nil
 }
 
+func (e *Executor) setFsfilter(pid int) error {
+	filter := fsfilter.NewFsFilter(pid)
+	for _, file := range e.rdFiles {
+		if err := filter.AddAllowedFile(file, fsfilter.FILE_RD); err != nil {
+			return err
+		}
+	}
+	for _, file := range e.wrFiles {
+		if err := filter.AddAllowedFile(file, fsfilter.FILE_WR); err != nil {
+			return err
+		}
+	}
+	for _, file := range e.exFiles {
+		if err := filter.AddAllowedFile(file, fsfilter.FILE_EX); err != nil {
+			return err
+		}
+	}
+
+	e.traceeFsfilter[pid] = filter
+	return nil
+}
+
+func (e *Executor) setResult(ws *syscall.WaitStatus, rusage *syscall.Rusage) {
+	r := &e.Result
+	if ws != nil {
+		if ws.Signaled() {
+			switch ws.Signal() {
+			case syscall.SIGXCPU, syscall.SIGKILL:
+				r.Status = StatusTimeLimitExceeded
+			case syscall.SIGXFSZ:
+				r.Status = StatusOutputLimitExceeded
+			case syscall.SIGSYS:
+				r.Status = StatusViolation
+			default:
+				r.Status = StatusSignaled
+			}
+
+			r.Reason = fmt.Sprintf("signal: %s", ws.Signal())
+			r.ExitCode = int(ws.Signal())
+		} else {
+			r.ExitCode = ws.ExitStatus()
+		}
+	} else {
+		r.ExitCode = -1
+	}
+
+	if rusage != nil {
+		r.SystemTime = time.Duration(rusage.Stime.Nano()) * time.Nanosecond
+		r.UserTime = time.Duration(rusage.Utime.Nano()) * time.Nanosecond
+		r.Maxrss = rusage.Maxrss
+	}
+
+	if r.FinishTime.IsZero() {
+		r.FinishTime = time.Now()
+		r.RealTime = r.FinishTime.Sub(r.StartTime)
+	} else {
+		r.RealTime = r.FinishTime.Sub(r.StartTime)
+	}
+}
+
+func (e *Executor) setResultWithOK(ws *syscall.WaitStatus, rusage *syscall.Rusage) {
+	r := &e.Result
+	r.FinishTime = time.Now()
+	r.Status = StatusOK
+	r.Reason = ""
+	e.setResult(ws, rusage)
+}
+
+func (e *Executor) setResultWithSandboxFailure(err error) {
+	r := &e.Result
+	r.FinishTime = time.Now()
+	r.Status = StatusSandboxFailure
+	r.Reason = err.Error()
+	e.setResult(nil, nil)
+	_ = e.cmd.Process.Kill() // ensure child process will not block the parent process
+}
+
+func (e *Executor) setResultWithViolation(err error) {
+	r := &e.Result
+	r.FinishTime = time.Now()
+	r.Status = StatusViolation
+	r.Reason = err.Error()
+	e.setResult(nil, nil)
+	_ = e.cmd.Process.Kill() // ensure child process will not block the parent process
+}
+
+func (e *Executor) setResultWithExecFailure(err error) {
+	r := &e.Result
+	r.FinishTime = time.Now()
+	r.Status = StatusExitFailure
+	r.Reason = err.Error()
+	e.setResult(nil, nil)
+}
+
 func (e *Executor) info(msg string) {
-	e.logger.Info(fmt.Sprintf("[%d] %s", e.wpid, msg))
+	e.logger.Info(fmt.Sprintf("[%d] %s", e.traceePid, msg))
 }

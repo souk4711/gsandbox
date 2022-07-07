@@ -6,16 +6,35 @@ import (
 	"strings"
 	"syscall"
 
-	"golang.org/x/sys/unix"
-
+	"github.com/souk4711/gsandbox/pkg/fsfilter"
 	"github.com/souk4711/gsandbox/pkg/ptrace"
+	"golang.org/x/sys/unix"
 )
 
-func (e *Executor) applySyscallFilterWhenEnter(curr *ptrace.Syscall) (error, error) {
+func (e *Executor) HandleTracerPanicEvent(err error) {
+	e.setResultWithSandboxFailure(err)
+}
+
+func (e *Executor) HandleTracerExitedEvent(ws syscall.WaitStatus, rusage syscall.Rusage) {
+	e.setResultWithOK(&ws, &rusage)
+}
+
+func (e *Executor) HandleTracerSignaledEvent(ws syscall.WaitStatus, rusage syscall.Rusage) {
+	e.setResult(&ws, &rusage)
+}
+
+func (e *Executor) HandleTracerSyscallEnterEvent(pid int, curr *ptrace.Syscall) (continued bool) {
+	e.traceePid = pid
+	defer func() {
+		e.traceePid = 0
+	}()
+
 	// prepare data from regs
 	for _, arg := range curr.GetArgs() {
 		if err := arg.Read(); err != nil {
-			return nil, fmt.Errorf("ptrace: %s", err.Error())
+			err = fmt.Errorf("ptrace: %s", err.Error())
+			e.setResultWithSandboxFailure(err)
+			return false
 		}
 	}
 
@@ -27,36 +46,36 @@ func (e *Executor) applySyscallFilterWhenEnter(curr *ptrace.Syscall) (error, err
 	}
 	e.info(fmt.Sprintf("syscall: Enter: %s(%s)", name, strings.Join(args, ", ")))
 
-	// filter - allowable
-	r1, err := e.applySyscallFilterWhenEnter_Allowable(curr)
-	if err != nil || r1 != nil {
-		return r1, err
+	// filter - restrict syscall access
+	if continued := e.HandleTracerSyscallEnterEvent_CheckSyscallAccess(pid, curr); !continued {
+		return false
 	}
 
-	// filter - fs
-	r2, err := e.applySyscallFilterWhenEnter_FileAccessControl(curr)
-	if err != nil || r2 != nil {
-		return r2, err
+	// filter - restrict file access
+	if continued := e.HandleTracerSyscallEnterEvent_CheckFileAccess(pid, curr); !continued {
+		return false
 	}
 
 	// ok
-	return nil, nil
+	return true
 }
 
-func (e *Executor) applySyscallFilterWhenEnter_Allowable(curr *ptrace.Syscall) (error, error) {
+func (e *Executor) HandleTracerSyscallEnterEvent_CheckSyscallAccess(pid int, curr *ptrace.Syscall) (continued bool) {
 	if _, ok := e.allowedSyscalls[curr.GetName()]; !ok {
 		err := fmt.Errorf("syscall: IllegalCall: func(%s)", curr.GetName())
-		return err, nil
+		e.setResultWithViolation(err)
+		return false
 	}
-	return nil, nil
+	return true
 }
 
-func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Syscall) (error, error) {
+func (e *Executor) HandleTracerSyscallEnterEvent_CheckFileAccess(pid int, curr *ptrace.Syscall) (continued bool) {
 	var (
 		dirfd  int    = unix.AT_FDCWD
 		path   string = "/gsandbox-invalid-path-9Qo0MIVp2fDiGKVbvdaIqw"
 		dirfd2 int    = unix.AT_FDCWD
 		path2  string = "/gsandbox-invalid-path-9Qo0MIVp2fDiGKVbvdaIqw"
+		filter *fsfilter.FsFilter
 	)
 
 	var nr = curr.GetNR()
@@ -298,90 +317,115 @@ func (e *Executor) applySyscallFilterWhenEnter_FileAccessControl(curr *ptrace.Sy
 
 	// not implemented
 	default:
+		// fs-related syscall?
 		for _, arg := range curr.GetArgs() {
 			if arg.IsParamType(ptrace.ParamTypeFd) || arg.IsParamType(ptrace.ParamTypePath) {
 				err := fmt.Errorf("fsfilter: NotImplemented: %s", curr.GetName())
-				return err, nil
+				e.setResultWithViolation(err)
+				return false
 			}
 		}
-		return nil, nil
+
+		// .
+		return true
 	}
 
 CHECK_READABLE:
-	if ok, _ := e.fsfilter.AllowRead(path, dirfd); !ok {
+	filter = e.traceeFsfilter[pid]
+	if ok, _ := filter.AllowRead(path, dirfd); !ok {
 		err := fmt.Errorf("fsfilter: ReadDisallowed: path(%s), dirfd(%d)", path, dirfd)
-		return err, nil
+		e.setResultWithViolation(err)
+		return false
 	} else {
 		e.info("syscall: Enter:   => fsfilter: ReadAllowed")
-		return nil, nil
+		return true
 	}
 
 CHECK_WRITEABLE:
-	if ok, _ := e.fsfilter.AllowWrite(path, dirfd); !ok {
+	filter = e.traceeFsfilter[pid]
+	if ok, _ := filter.AllowWrite(path, dirfd); !ok {
 		err := fmt.Errorf("fsfilter: WriteDisallowed: path(%s), dirfd(%d)", path, dirfd)
-		return err, nil
+		e.setResultWithViolation(err)
+		return false
 	} else {
 		e.info("syscall: Enter:   => fsfiter: WriteAllowed")
-		return nil, nil
+		return true
 	}
 
 CHECK_WRITEABLE_2:
-	if ok, _ := e.fsfilter.AllowWrite(path, dirfd); !ok {
+	filter = e.traceeFsfilter[pid]
+	if ok, _ := filter.AllowWrite(path, dirfd); !ok {
 		err := fmt.Errorf("fsfilter: WriteDisallowed: path(%s), dirfd(%d), path2(%s), dirfd2(%d)", path, dirfd, path2, dirfd2)
-		return err, nil
-	} else if ok, _ := e.fsfilter.AllowWrite(path2, dirfd2); !ok {
+		e.setResultWithViolation(err)
+		return false
+	} else if ok, _ := filter.AllowWrite(path2, dirfd2); !ok {
 		err := fmt.Errorf("fsfilter: WriteDisallowed: path(%s), dirfd(%d), path2(%s), dirfd2(%d)", path, dirfd, path2, dirfd2)
-		return err, nil
+		e.setResultWithViolation(err)
+		return false
 	} else {
 		e.info("syscall: Enter:   => fsfiter: WriteAllowed")
-		return nil, nil
+		return true
 	}
 
 CHECK_EXECUTABLE:
-	if ok, _ := e.fsfilter.AllowExecute(path, dirfd); !ok {
+	filter = e.traceeFsfilter[pid]
+	if ok, _ := filter.AllowExecute(path, dirfd); !ok {
 		err := fmt.Errorf("fsfilter: ExecuteDisallowed: path(%s), dirfd(%d)", path, dirfd)
-		return err, nil
+		e.setResultWithViolation(err)
+		return false
 	} else {
 		e.info("syscall: Enter:   => fsfilter: ExecuteAllowed")
-		return nil, nil
+		return true
 	}
 
 PASSTHROUGH:
-	return nil, nil
+	return true
 }
 
-func (e *Executor) applySyscallFilterWhenLeave(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
+func (e *Executor) HandleTracerSyscallLeaveEvent(pid int, curr *ptrace.Syscall, prev *ptrace.Syscall) (continued bool) {
+	e.traceePid = pid
+	defer func() {
+		e.traceePid = 0
+	}()
+
+	// special case
+	if curr.GetNR() == unix.SYS_EXIT_GROUP {
+		e.info("syscall: Leave:   => retval: ?")
+		return true
+	}
+
 	// prepare data from regs
 	var retval = curr.GetRetval()
 	if err := retval.Read(); err != nil {
-		return nil, fmt.Errorf("ptrace: %s", err.Error())
+		e.setResultWithSandboxFailure(fmt.Errorf("ptrace: %s", err.Error()))
+		return false
 	}
 
 	// ENOSYS - which is put into RAX as a default return value by the kernel's syscall entry code
-	//if retval.HasError_ENOSYS() {
-	//	return nil, fmt.Errorf("ptrace: ENOSYS: %s(...) = %s", curr.GetName(), syscall.ENOSYS)
-	//}
-	_ = syscall.ENOSYS
+	if retval.HasError_ENOSYS() {
+		e.setResultWithSandboxFailure(fmt.Errorf("ptrace: ENOSYS: %s(...) = %s", curr.GetName(), syscall.ENOSYS))
+		return false
+	}
 
 	// track fd
-	r1, err := e.applySyscallFilterWhenLeave_TrackFd(curr, prev)
-	if err != nil || r1 != nil {
-		return r1, err
+	if continued := e.HandleTracerSyscallLeaveEvent_TraceFd(pid, curr, prev); !continued {
+		return false
 	}
 
 	// logging
 	e.info(fmt.Sprintf("syscall: Leave:   => retval: %s", retval))
 
 	// ok
-	return nil, nil
+	return true
 }
 
-func (e *Executor) applySyscallFilterWhenLeave_TrackFd(curr *ptrace.Syscall, prev *ptrace.Syscall) (error, error) {
+func (e *Executor) HandleTracerSyscallLeaveEvent_TraceFd(pid int, curr *ptrace.Syscall, prev *ptrace.Syscall) (continued bool) {
 	var retval = curr.GetRetval()
 	if retval.HasError() {
-		return nil, nil
+		return true
 	}
 
+	var filter = e.traceeFsfilter[pid]
 	var nr = curr.GetNR()
 	switch nr {
 	// open
@@ -400,16 +444,18 @@ func (e *Executor) applySyscallFilterWhenLeave_TrackFd(curr *ptrace.Syscall, pre
 			path = prev.GetArg(0).GetPath()
 		}
 
-		f, err := e.fsfilter.TrackFd(retval.GetValue(), path, dirfd)
+		f, err := filter.TrackFd(retval.GetValue(), path, dirfd)
 		if err != nil {
-			return nil, fmt.Errorf("ptrace: %s", err.Error())
+			err = fmt.Errorf("ptrace: %s", err.Error())
+			e.setResultWithSandboxFailure(err)
+			return false
 		}
 		e.info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s", ptrace.Fd(retval.GetValue()), f.GetFullpath()))
 
 	// close
 	case unix.SYS_CLOSE:
 		var fd = prev.GetArg(0).GetFd()
-		e.fsfilter.UntrackFd(fd)
+		filter.UntrackFd(fd)
 		e.info(fmt.Sprintf("syscall: Leave:   => fsfilter: UNTRACK: %s", ptrace.Fd(fd)))
 
 	// dup
@@ -428,12 +474,16 @@ func (e *Executor) applySyscallFilterWhenLeave_TrackFd(curr *ptrace.Syscall, pre
 			newfd = retval.GetValue()
 		}
 
-		f, err := e.fsfilter.GetTrackdFile(oldfd)
+		f, err := filter.GetTrackdFile(oldfd)
 		if err != nil {
-			return nil, fmt.Errorf("ptrace: %s", err.Error())
+			err = fmt.Errorf("ptrace: %s", err.Error())
+			e.setResultWithSandboxFailure(err)
+			return false
 		}
-		if _, err := e.fsfilter.TrackFd(retval.GetValue(), f.GetFullpath(), unix.AT_FDCWD); err != nil {
-			return nil, fmt.Errorf("ptrace: %s", err.Error())
+		if _, err := filter.TrackFd(retval.GetValue(), f.GetFullpath(), unix.AT_FDCWD); err != nil {
+			err = fmt.Errorf("ptrace: %s", err.Error())
+			e.setResultWithSandboxFailure(err)
+			return false
 		}
 		e.info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s <=> %s", ptrace.Fd(newfd), ptrace.Fd(oldfd), f.GetFullpath()))
 
@@ -452,19 +502,24 @@ func (e *Executor) applySyscallFilterWhenLeave_TrackFd(curr *ptrace.Syscall, pre
 			break
 		case unix.F_DUPFD:
 			var newfd = retval.GetValue()
-			f, err := e.fsfilter.GetTrackdFile(oldfd)
+			f, err := filter.GetTrackdFile(oldfd)
 			if err != nil {
-				return nil, fmt.Errorf("ptrace: %s", err.Error())
+				err = fmt.Errorf("ptrace: %s", err.Error())
+				e.setResultWithSandboxFailure(err)
+				return false
 			}
-			if _, err := e.fsfilter.TrackFd(newfd, f.GetFullpath(), unix.AT_FDCWD); err != nil {
-				return nil, fmt.Errorf("ptrace: %s", err.Error())
+			if _, err := filter.TrackFd(newfd, f.GetFullpath(), unix.AT_FDCWD); err != nil {
+				err = fmt.Errorf("ptrace: %s", err.Error())
+				e.setResultWithSandboxFailure(err)
+				return false
 			}
 			e.info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s <=> %s", ptrace.Fd(newfd), ptrace.Fd(oldfd), f.GetFullpath()))
 		default:
 			err := fmt.Errorf("fsfilter: NotImplemented: %s(%s, %s, ...)", curr.GetName(), ptrace.Fd(oldfd), ptrace.FlagFcntlCmd(cmd))
-			return err, nil
+			e.setResultWithViolation(err)
+			return false
 		}
 	}
 
-	return nil, nil
+	return true
 }
