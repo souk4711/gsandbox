@@ -23,6 +23,12 @@ func (e *Executor) HandleTracerSignaledEvent(ws syscall.WaitStatus, rusage sysca
 	e.setResult(&ws, &rusage)
 }
 
+func (e *Executor) HandleTracerNewChildEvent(parentPid int, childPid int) {
+	parentFsFilter := e.traceeFsfilter[parentPid]
+	childFsFilter := fsfilter.NewFsFilterInheritFromParent(childPid, parentFsFilter)
+	e.traceeFsfilter[childPid] = childFsFilter
+}
+
 func (e *Executor) HandleTracerSyscallEnterEvent(pid int, curr *ptrace.Syscall) (continued bool) {
 	e.traceePid = pid
 	defer func() {
@@ -403,6 +409,7 @@ func (e *Executor) HandleTracerSyscallLeaveEvent(pid int, curr *ptrace.Syscall, 
 
 	// ENOSYS - which is put into RAX as a default return value by the kernel's syscall entry code
 	if retval.HasError_ENOSYS() {
+		e.info(fmt.Sprintf("syscall: Leave:   => retval: %s", retval))
 		e.setResultWithSandboxFailure(fmt.Errorf("ptrace: ENOSYS: %s(...) = %s", curr.GetName(), syscall.ENOSYS))
 		return false
 	}

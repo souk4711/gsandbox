@@ -42,6 +42,19 @@ func NewFsFilter(pid int) *FsFilter {
 	return fs
 }
 
+func NewFsFilterInheritFromParent(pid int, parentFsFilter *FsFilter) *FsFilter {
+	allowedFiles := make([]File, len(parentFsFilter.allowedFiles))
+	copy(allowedFiles, parentFsFilter.allowedFiles)
+
+	trackedFds := make(map[int]File)
+	for k, v := range parentFsFilter.trackedFds {
+		trackedFds[k] = v
+	}
+
+	fs := &FsFilter{pid: pid, allowedFiles: allowedFiles, trackedFds: trackedFds}
+	return fs
+}
+
 func (fs *FsFilter) AddAllowedFile(path string, perm int) error {
 	var fullpath string
 	var mode = perm

@@ -207,7 +207,7 @@ func (e *Executor) run() {
 	}
 
 	// set fsfilter
-	if err := e.setFsfilter(pid); err != nil {
+	if err := e.setFsFilter(pid); err != nil {
 		e.setResultWithExecFailure(err)
 		return
 	}
@@ -260,7 +260,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	return nil
 }
 
-func (e *Executor) setFsfilter(pid int) error {
+func (e *Executor) setFsFilter(pid int) error {
 	filter := fsfilter.NewFsFilter(pid)
 	for _, file := range e.rdFiles {
 		if err := filter.AddAllowedFile(file, fsfilter.FILE_RD); err != nil {

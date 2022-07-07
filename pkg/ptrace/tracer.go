@@ -15,6 +15,7 @@ type TracerHandler interface {
 	HandleTracerPanicEvent(err error)                                                     // panic
 	HandleTracerExitedEvent(ws syscall.WaitStatus, rusage syscall.Rusage)                 // ws.Exited()
 	HandleTracerSignaledEvent(ws syscall.WaitStatus, rusage syscall.Rusage)               // ws.Signaled()
+	HandleTracerNewChildEvent(parentPid int, childPid int)                                // PTRACE_EVENT_CLONE
 	HandleTracerSyscallEnterEvent(pid int, curr *Syscall) (continued bool)                // when syscall enter
 	HandleTracerSyscallLeaveEvent(pid int, curr *Syscall, prev *Syscall) (continued bool) // when syscall leave
 }
@@ -39,6 +40,7 @@ func (t *Tracer) trace(handler TracerHandler) {
 	var ws syscall.WaitStatus
 	var rusage syscall.Rusage
 	var currTracee *Tracee
+	var curr *Syscall
 	for {
 		wpid, err := syscall.Wait4(-t.pid, &ws, syscall.WALL, &rusage)
 		if err != nil {
@@ -54,20 +56,41 @@ func (t *Tracer) trace(handler TracerHandler) {
 		}
 
 		// check wait status
-		if wpid == t.pid {
-			if ws.Exited() {
+		if ws.Exited() {
+			if wpid == t.pid {
 				handler.HandleTracerExitedEvent(ws, rusage)
 				return
-			} else if ws.Signaled() {
+			}
+		} else if ws.Signaled() {
+			if wpid == t.pid {
 				handler.HandleTracerSignaledEvent(ws, rusage)
 				return
-			} else if ws.Stopped() {
-				_ = ws.Signal()
+			}
+		} else if ws.Stopped() {
+			switch signal := ws.StopSignal(); signal {
+			// syscall.PTRACE_O_TRACESYSGOOD
+			case syscall.SIGTRAP | 0x80:
+				break
+
+			// syscall.PTRACE_O_TRACECLONE
+			// syscall.PTRACE_O_TRACEFORK
+			// syscall.PTRACE_O_TRACEVFORK
+			case syscall.SIGTRAP:
+				switch tc := ws.TrapCause(); tc {
+				case syscall.PTRACE_EVENT_CLONE, syscall.PTRACE_EVENT_FORK, syscall.PTRACE_EVENT_VFORK:
+					if childPid, err := syscall.PtraceGetEventMsg(wpid); err != nil {
+						handler.HandleTracerPanicEvent(err)
+						return
+					} else {
+						handler.HandleTracerNewChildEvent(wpid, int(childPid))
+						goto TRACE_CONTINUE
+					}
+				}
 			}
 		}
 
 		// reterive syscall info
-		curr, err := GetSyscall(wpid)
+		curr, err = GetSyscall(wpid)
 		if err != nil {
 			handler.HandleTracerPanicEvent(err)
 			return
@@ -77,7 +100,8 @@ func (t *Tracer) trace(handler TracerHandler) {
 		if currTracee.insyscall { // syscall enter event
 			// special case
 			switch curr.GetNR() {
-			case unix.SYS_EXECVE, unix.SYS_EXECVEAT: // an additional notification event of `exec`?
+			case unix.SYS_EXECVE, // an additional notification event of `exec` in child?
+				unix.SYS_CLONE: // an additional notification event of `clone` in child?
 				if err := curr.GetRetval().Read(); err != nil {
 					handler.HandleTracerPanicEvent(err)
 					return
