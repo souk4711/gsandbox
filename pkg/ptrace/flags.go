@@ -30,7 +30,7 @@ func (f FlagOpen) String() string {
 	var str = ""
 	var update = func(testFlag int) {
 		if currFlag&testFlag != 0 {
-			str += FlagOpenConstant(testFlag).String() + "|"
+			str += FlagOpenStringer(testFlag).String() + "|"
 		}
 		currFlag = currFlag &^ int(testFlag)
 	}
@@ -63,5 +63,5 @@ func (f FlagOpen) String() string {
 }
 
 func (f FlagFcntlCmd) String() string {
-	return FlagFcntlCmdConstant(int(f)).String()
+	return FlagFcntlCmdStringer(int(f)).String()
 }
