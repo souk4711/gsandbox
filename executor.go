@@ -65,6 +65,12 @@ type Executor struct {
 	wrFiles  []string
 	exFiles  []string
 
+	// multiple processes info
+	wpid           int
+	wpid2Insyscall map[int]bool
+	wpid2Prev      map[int]*ptrace.Syscall
+	// wpid2Fsfilter map[int]*fsfilter.FsFilter
+
 	// cmd is the underlying comamnd, once started
 	cmd *exec.Cmd
 
@@ -76,6 +82,7 @@ func NewExecutor(prog string, args []string) *Executor {
 	var e = Executor{
 		Prog: prog, Args: args,
 		flags: make(map[string]string), allowedSyscalls: make(map[string]struct{}),
+		wpid2Insyscall: make(map[int]bool), wpid2Prev: make(map[int]*ptrace.Syscall),
 	}
 	return &e
 }
@@ -117,12 +124,12 @@ func (e *Executor) Run() {
 	defer runtime.UnlockOSThread()
 
 	// logging
-	e.logger.Info(fmt.Sprintf("proc: Start: %s %s", e.Prog, strings.Join(e.Args, " ")))
+	e.info(fmt.Sprintf("proc: Start: %s %s", e.Prog, strings.Join(e.Args, " ")))
 
 	// timeout
 	var cmd *exec.Cmd
 	if lim := e.limits.LimitWallClockTime; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit: walltime => %s", time.Duration(*lim*uint64(time.Second))))
+		e.info(fmt.Sprintf("setrlimit: walltime => %s", time.Duration(*lim*uint64(time.Second))))
 		var ctx, cancel = context.WithTimeout(context.Background(), time.Duration(*lim)*time.Second)
 		defer cancel()
 		cmd = exec.CommandContext(ctx, e.Prog, e.Args...)
@@ -142,19 +149,20 @@ func (e *Executor) Run() {
 
 	// run
 	e.run()
+	e.wpid = 0
 
 	// logging
 	r := e.Result
-	e.logger.Info("proc: Finished:")
-	e.logger.Info(fmt.Sprintf("        status: %d, %s", r.Status, r.Status))
-	e.logger.Info(fmt.Sprintf("        reason: %s", r.Reason))
-	e.logger.Info(fmt.Sprintf("      exitCode: %d", r.ExitCode))
-	e.logger.Info(fmt.Sprintf("        startT: %s", r.StartTime.Format(time.ANSIC)))
-	e.logger.Info(fmt.Sprintf("       finishT: %s", r.FinishTime.Format(time.ANSIC)))
-	e.logger.Info(fmt.Sprintf("          real: %s", r.RealTime))
-	e.logger.Info(fmt.Sprintf("           sys: %s", r.SystemTime))
-	e.logger.Info(fmt.Sprintf("          user: %s", r.UserTime))
-	e.logger.Info(fmt.Sprintf("           rss: %s", humanize.IBytes(uint64(r.Maxrss))))
+	e.info("proc: Finished:")
+	e.info(fmt.Sprintf("        status: %d, %s", r.Status, r.Status))
+	e.info(fmt.Sprintf("        reason: %s", r.Reason))
+	e.info(fmt.Sprintf("      exitCode: %d", r.ExitCode))
+	e.info(fmt.Sprintf("        startT: %s", r.StartTime.Format(time.ANSIC)))
+	e.info(fmt.Sprintf("       finishT: %s", r.FinishTime.Format(time.ANSIC)))
+	e.info(fmt.Sprintf("          real: %s", r.RealTime))
+	e.info(fmt.Sprintf("           sys: %s", r.SystemTime))
+	e.info(fmt.Sprintf("          user: %s", r.UserTime))
+	e.info(fmt.Sprintf("           rss: %s", humanize.IBytes(uint64(r.Maxrss))))
 }
 
 func (e *Executor) setCmdProcAttr() {
@@ -181,6 +189,7 @@ func (e *Executor) setCmdProcAttr() {
 		UidMappings:  uidMappings,
 		GidMappings:  gidMappings,
 		Ptrace:       true,
+		Setpgid:      true,
 	}
 }
 
@@ -290,9 +299,9 @@ func (e *Executor) run() {
 	var flag = 0
 	flag = flag | syscall.PTRACE_O_TRACESYSGOOD // makes it easy for the tracer to distinguish normal traps from those caused by a system call
 	flag = flag | syscall.PTRACE_O_TRACEEXIT    // stop the tracee at exit
-	flag = flag | syscall.PTRACE_O_TRACECLONE   // automatically trace clone(2) children
-	flag = flag | syscall.PTRACE_O_TRACEFORK    // automatically trace fork(2) children
-	flag = flag | syscall.PTRACE_O_TRACEVFORK   // automatically trace vfork(2) children
+	//flag = flag | syscall.PTRACE_O_TRACECLONE   // automatically trace clone(2) children
+	flag = flag | syscall.PTRACE_O_TRACEFORK  // automatically trace fork(2) children
+	flag = flag | syscall.PTRACE_O_TRACEVFORK // automatically trace vfork(2) children
 	if err := syscall.PtraceSetOptions(pid, flag); err != nil {
 		setResultWithSandboxFailure(err)
 		return
@@ -328,23 +337,45 @@ func (e *Executor) run() {
 	// start trace
 	var ws syscall.WaitStatus
 	var rusage syscall.Rusage
-	var prev *ptrace.Syscall = nil
-	var insyscall = true
+	var prev *ptrace.Syscall
+	var insyscall bool
+	var firstClone = true
 	for {
+		wpid, err := syscall.Wait4(-pid, &ws, 0, &rusage)
+		if err != nil {
+			setResultWithSandboxFailure(err)
+			return
+		}
+
+		// reterive process info
+		e.wpid = wpid
+		if v, ok := e.wpid2Insyscall[wpid]; ok {
+			insyscall = v
+		} else {
+			insyscall = true
+		}
+		if v, ok := e.wpid2Prev[wpid]; ok {
+			prev = v
+		} else {
+			prev = nil
+		}
+
 		// check wait status
-		_, _ = syscall.Wait4(pid, &ws, 0, &rusage)
-		if ws.Exited() {
-			setResultWithOK(&ws, &rusage)
-			return
-		} else if ws.Signaled() {
-			setResult(&ws, &rusage)
-			return
-		} else if ws.Stopped() {
-			_ = ws.Signal()
+		if e.wpid == pid {
+			if ws.Exited() {
+				setResultWithOK(&ws, &rusage)
+				return
+			} else if ws.Signaled() {
+				setResult(&ws, &rusage)
+				return
+			} else if ws.Stopped() {
+				_ = ws.Signal()
+			}
 		}
 
 		// handle ptrace events
-		curr, err := ptrace.GetSyscall(pid)
+		curr, err := ptrace.GetSyscall(e.wpid)
+
 		if err != nil {
 			setResultWithSandboxFailure(err)
 			return
@@ -360,6 +391,17 @@ func (e *Executor) run() {
 				if curr.GetRetval().GetValue() == 0 {
 					goto TRACE_CONTINUE
 				}
+			case unix.SYS_CLONE:
+				if err := curr.GetRetval().Read(); err != nil {
+					setResultWithSandboxFailure(err)
+					return
+				}
+				if curr.GetRetval().GetValue() == 0 { // Is an additional notification event of `clone`? - for child?
+					goto TRACE_CONTINUE
+				} else if curr.GetRetval().GetValue() == -38 && firstClone { // Is an additional notification event of `clone`? - for parent?
+					firstClone = false
+					goto TRACE_CONTINUE
+				}
 			}
 
 			// filter
@@ -372,8 +414,8 @@ func (e *Executor) run() {
 				setResultWithViolation(result)
 				return
 			}
-			prev = curr
-			insyscall = false
+			e.wpid2Prev[e.wpid] = curr
+			e.wpid2Insyscall[e.wpid] = false
 		} else { // syscall leave event
 			// special case
 			switch curr.GetNR() {
@@ -391,14 +433,14 @@ func (e *Executor) run() {
 				setResultWithViolation(result)
 				return
 			}
-			prev = nil
-			insyscall = true
+			e.wpid2Prev[e.wpid] = nil
+			e.wpid2Insyscall[e.wpid] = true
 		}
 
 	TRACE_CONTINUE:
 		// Resume tracee execution. Make the kernel stop the child process whenever a
 		// system call entry or exit is made.
-		if err := syscall.PtraceSyscall(pid, 0); err != nil {
+		if err := syscall.PtraceSyscall(e.wpid, 0); err != nil {
 			err = fmt.Errorf("ptrace: Syscall: %s", err.Error())
 			setResultWithSandboxFailure(err)
 			return
@@ -408,8 +450,7 @@ func (e *Executor) run() {
 
 func (e *Executor) setCmdRlimits(pid int) error {
 	if lim := e.limits.RlimitAS; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit:       as => %s", humanize.IBytes(*lim)))
-
+		e.info(fmt.Sprintf("setrlimit:       as => %s", humanize.IBytes(*lim)))
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_AS, &rlim); err != nil {
 			return fmt.Errorf("setrlimit: SetAS: %s", err.Error())
@@ -417,8 +458,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	}
 
 	if lim := e.limits.RlimitCPU; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit:      cpu => %s", time.Duration(*lim*uint64(time.Second))))
-
+		e.info(fmt.Sprintf("setrlimit:      cpu => %s", time.Duration(*lim*uint64(time.Second))))
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_CPU, &rlim); err != nil {
 			return fmt.Errorf("setrlimit: SetCPU: %s", err.Error())
@@ -426,8 +466,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	}
 
 	if lim := e.limits.RlimitCORE; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit:     core => %s", humanize.IBytes(*lim)))
-
+		e.info(fmt.Sprintf("setrlimit:     core => %s", humanize.IBytes(*lim)))
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_CORE, &rlim); err != nil {
 			return fmt.Errorf("setrlimit: SetCORE: %s", err.Error())
@@ -435,8 +474,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	}
 
 	if lim := e.limits.RlimitFSIZE; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit:    fsize => %s", humanize.IBytes(*lim)))
-
+		e.info(fmt.Sprintf("setrlimit:    fsize => %s", humanize.IBytes(*lim)))
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_FSIZE, &rlim); err != nil {
 			return fmt.Errorf("setrlimit: SetFSIZE: %s", err.Error())
@@ -444,8 +482,7 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	}
 
 	if lim := e.limits.RlimitNOFILE; lim != nil {
-		e.logger.Info(fmt.Sprintf("setrlimit:   nofile => %d", *lim))
-
+		e.info(fmt.Sprintf("setrlimit:   nofile => %d", *lim))
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
 		if err := prlimit.Setprlimit(pid, syscall.RLIMIT_NOFILE, &rlim); err != nil {
 			return fmt.Errorf("setrlimit: SetNOFILE: %s", err.Error())
@@ -453,4 +490,8 @@ func (e *Executor) setCmdRlimits(pid int) error {
 	}
 
 	return nil
+}
+
+func (e *Executor) info(msg string) {
+	e.logger.Info(fmt.Sprintf("[%d] %s", e.wpid, msg))
 }

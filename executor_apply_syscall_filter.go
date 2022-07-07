@@ -25,7 +25,7 @@ func (e *Executor) applySyscallFilterWhenEnter(curr *ptrace.Syscall) (error, err
 	for i, arg := range curr.GetArgs() {
 		args[i] = arg.String()
 	}
-	e.logger.Info(fmt.Sprintf("syscall: Enter: %s(%s)", name, strings.Join(args, ", ")))
+	e.info(fmt.Sprintf("syscall: Enter: %s(%s)", name, strings.Join(args, ", ")))
 
 	// filter - allowable
 	r1, err := e.applySyscallFilterWhenEnter_Allowable(curr)
@@ -312,7 +312,7 @@ CHECK_READABLE:
 		err := fmt.Errorf("fsfilter: ReadDisallowed: path(%s), dirfd(%d)", path, dirfd)
 		return err, nil
 	} else {
-		e.logger.Info("syscall: Enter:   => fsfilter: ReadAllowed")
+		e.info("syscall: Enter:   => fsfilter: ReadAllowed")
 		return nil, nil
 	}
 
@@ -321,7 +321,7 @@ CHECK_WRITEABLE:
 		err := fmt.Errorf("fsfilter: WriteDisallowed: path(%s), dirfd(%d)", path, dirfd)
 		return err, nil
 	} else {
-		e.logger.Info("syscall: Enter:   => fsfiter: WriteAllowed")
+		e.info("syscall: Enter:   => fsfiter: WriteAllowed")
 		return nil, nil
 	}
 
@@ -333,7 +333,7 @@ CHECK_WRITEABLE_2:
 		err := fmt.Errorf("fsfilter: WriteDisallowed: path(%s), dirfd(%d), path2(%s), dirfd2(%d)", path, dirfd, path2, dirfd2)
 		return err, nil
 	} else {
-		e.logger.Info("syscall: Enter:   => fsfiter: WriteAllowed")
+		e.info("syscall: Enter:   => fsfiter: WriteAllowed")
 		return nil, nil
 	}
 
@@ -342,7 +342,7 @@ CHECK_EXECUTABLE:
 		err := fmt.Errorf("fsfilter: ExecuteDisallowed: path(%s), dirfd(%d)", path, dirfd)
 		return err, nil
 	} else {
-		e.logger.Info("syscall: Enter:   => fsfilter: ExecuteAllowed")
+		e.info("syscall: Enter:   => fsfilter: ExecuteAllowed")
 		return nil, nil
 	}
 
@@ -358,9 +358,10 @@ func (e *Executor) applySyscallFilterWhenLeave(curr *ptrace.Syscall, prev *ptrac
 	}
 
 	// ENOSYS - which is put into RAX as a default return value by the kernel's syscall entry code
-	if retval.HasError_ENOSYS() {
-		return nil, fmt.Errorf("ptrace: ENOSYS: %s(...) = %s", curr.GetName(), syscall.ENOSYS)
-	}
+	//if retval.HasError_ENOSYS() {
+	//	return nil, fmt.Errorf("ptrace: ENOSYS: %s(...) = %s", curr.GetName(), syscall.ENOSYS)
+	//}
+	_ = syscall.ENOSYS
 
 	// track fd
 	r1, err := e.applySyscallFilterWhenLeave_TrackFd(curr, prev)
@@ -369,7 +370,7 @@ func (e *Executor) applySyscallFilterWhenLeave(curr *ptrace.Syscall, prev *ptrac
 	}
 
 	// logging
-	e.logger.Info(fmt.Sprintf("syscall: Leave:   => retval: %s", retval))
+	e.info(fmt.Sprintf("syscall: Leave:   => retval: %s", retval))
 
 	// ok
 	return nil, nil
@@ -403,13 +404,13 @@ func (e *Executor) applySyscallFilterWhenLeave_TrackFd(curr *ptrace.Syscall, pre
 		if err != nil {
 			return nil, fmt.Errorf("ptrace: %s", err.Error())
 		}
-		e.logger.Info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s", ptrace.Fd(retval.GetValue()), f.GetFullpath()))
+		e.info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s", ptrace.Fd(retval.GetValue()), f.GetFullpath()))
 
 	// close
 	case unix.SYS_CLOSE:
 		var fd = prev.GetArg(0).GetFd()
 		e.fsfilter.UntrackFd(fd)
-		e.logger.Info(fmt.Sprintf("syscall: Leave:   => fsfilter: UNTRACK: %s", ptrace.Fd(fd)))
+		e.info(fmt.Sprintf("syscall: Leave:   => fsfilter: UNTRACK: %s", ptrace.Fd(fd)))
 
 	// dup
 	case unix.SYS_DUP, unix.SYS_DUP2, unix.SYS_DUP3:
@@ -434,7 +435,7 @@ func (e *Executor) applySyscallFilterWhenLeave_TrackFd(curr *ptrace.Syscall, pre
 		if _, err := e.fsfilter.TrackFd(retval.GetValue(), f.GetFullpath(), unix.AT_FDCWD); err != nil {
 			return nil, fmt.Errorf("ptrace: %s", err.Error())
 		}
-		e.logger.Info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s <=> %s", ptrace.Fd(newfd), ptrace.Fd(oldfd), f.GetFullpath()))
+		e.info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s <=> %s", ptrace.Fd(newfd), ptrace.Fd(oldfd), f.GetFullpath()))
 
 	// fcntl
 	case unix.SYS_FCNTL:
@@ -458,7 +459,7 @@ func (e *Executor) applySyscallFilterWhenLeave_TrackFd(curr *ptrace.Syscall, pre
 			if _, err := e.fsfilter.TrackFd(newfd, f.GetFullpath(), unix.AT_FDCWD); err != nil {
 				return nil, fmt.Errorf("ptrace: %s", err.Error())
 			}
-			e.logger.Info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s <=> %s", ptrace.Fd(newfd), ptrace.Fd(oldfd), f.GetFullpath()))
+			e.info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s <=> %s", ptrace.Fd(newfd), ptrace.Fd(oldfd), f.GetFullpath()))
 		default:
 			err := fmt.Errorf("fsfilter: NotImplemented: %s(%s, %s, ...)", curr.GetName(), ptrace.Fd(oldfd), ptrace.FlagFcntlCmd(cmd))
 			return err, nil
