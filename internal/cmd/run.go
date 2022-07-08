@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/signal"
 
 	"github.com/go-logr/logr"
 	"github.com/go-logr/logr/funcr"
@@ -30,6 +31,14 @@ func newRunCommand() *cobra.Command {
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			var sandbox = gsandbox.NewSandbox()
+
+			// cleanup
+			var c = make(chan os.Signal, 1)
+			signal.Notify(c, os.Interrupt)
+			go func() {
+				<-c
+				sandbox.Cleanup()
+			}()
 
 			// Flag: verbose
 			if verbose {

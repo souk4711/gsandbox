@@ -3,6 +3,7 @@ package gsandbox
 import (
 	"os"
 	"strconv"
+	"syscall"
 	"time"
 
 	"github.com/dustin/go-humanize"
@@ -14,12 +15,16 @@ import (
 )
 
 type Sandbox struct {
-	policy Policy
-	logger logr.Logger
+	policy           Policy
+	logger           logr.Logger
+	runningExecutors map[*Executor]struct{}
 }
 
 func NewSandbox() *Sandbox {
-	var s = Sandbox{logger: funcr.New(func(_, _ string) {}, funcr.Options{})}
+	var s = Sandbox{
+		logger:           funcr.New(func(_, _ string) {}, funcr.Options{}),
+		runningExecutors: make(map[*Executor]struct{}),
+	}
 	return &s
 }
 
@@ -79,7 +84,18 @@ func (s *Sandbox) NewExecutor(prog string, args []string) *Executor {
 	executor.SetFilterFileList(fsfilter.FILE_WR, policy.FileSystem.WritableFiles)
 	executor.SetFilterFileList(fsfilter.FILE_EX, policy.FileSystem.ExecutableFiles)
 
+	// .
+	executor.sandbox = s
 	return executor
+}
+
+func (s *Sandbox) Cleanup() {
+	for e := range s.runningExecutors {
+		_ = syscall.Kill(-e.cmd.Process.Pid, syscall.SIGKILL)
+	}
+	for e := range s.runningExecutors {
+		_, _ = syscall.Wait4(-e.cmd.Process.Pid, nil, syscall.WALL, nil)
+	}
 }
 
 func (s *Sandbox) LoadPolicyFromFile(filePath string) error {
@@ -95,4 +111,12 @@ func (s *Sandbox) LoadPolicyFromFile(filePath string) error {
 
 func (s *Sandbox) LoadPolicyFromData(data []byte) error {
 	return yaml.Unmarshal(data, &s.policy)
+}
+
+func (s *Sandbox) addRunningExecutor(e *Executor) {
+	s.runningExecutors[e] = struct{}{}
+}
+
+func (s *Sandbox) removeRunningExecutor(e *Executor) {
+	delete(s.runningExecutors, e)
 }

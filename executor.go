@@ -72,6 +72,9 @@ type Executor struct {
 
 	// logger
 	logger logr.Logger
+
+	// sandbox
+	sandbox *Sandbox
 }
 
 func NewExecutor(prog string, args []string) *Executor {
@@ -193,8 +196,16 @@ func (e *Executor) run() {
 		e.setResultWithExecFailure(err)
 		return
 	}
+
+	// cleanup
+	if e.sandbox != nil {
+		e.sandbox.addRunningExecutor(e)
+		defer func() {
+			e.sandbox.removeRunningExecutor(e)
+		}()
+	}
 	defer func() { // avoid child process become a zombie process
-		_ = e.cmd.Wait()
+		_, _ = syscall.Wait4(-e.cmd.Process.Pid, nil, syscall.WALL, nil)
 	}()
 
 	// set child process resource limit
@@ -337,7 +348,7 @@ func (e *Executor) setResultWithSandboxFailure(err error) {
 	r.Status = StatusSandboxFailure
 	r.Reason = err.Error()
 	e.setResult(nil, nil)
-	_ = e.cmd.Process.Kill() // ensure child process will not block the parent process
+	_ = syscall.Kill(-e.cmd.Process.Pid, syscall.SIGKILL) // ensure child process will not block the parent process
 }
 
 func (e *Executor) setResultWithViolation(err error) {
@@ -346,7 +357,7 @@ func (e *Executor) setResultWithViolation(err error) {
 	r.Status = StatusViolation
 	r.Reason = err.Error()
 	e.setResult(nil, nil)
-	_ = e.cmd.Process.Kill() // ensure child process will not block the parent process
+	_ = syscall.Kill(-e.cmd.Process.Pid, syscall.SIGKILL) // ensure child process will not block the parent process
 }
 
 func (e *Executor) setResultWithExecFailure(err error) {
