@@ -66,7 +66,7 @@ type Executor struct {
 	// cmd is the underlying comamnd, once started
 	cmd *exec.Cmd
 
-	// .
+	// tracee-related
 	traceePid      int
 	traceeFsfilter map[int]*fsfilter.FsFilter
 
@@ -208,7 +208,7 @@ func (e *Executor) run() {
 
 	// set fsfilter
 	if err := e.setFsFilter(pid); err != nil {
-		e.setResultWithExecFailure(err)
+		e.setResultWithSandboxFailure(err)
 		return
 	}
 

@@ -10,10 +10,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const (
-	_FILE_FULLPATH_STDIN  = "/fsfilter-fake-path-L21ckaUIMU5IgsymZrrGwg/stdin"
-	_FILE_FULLPATH_STDOUT = "/fsfilter-fake-path-L21ckaUIMU5IgsymZrrGwg/stdout"
-	_FILE_FULLPATH_STDERR = "/fsfilter-fake-path-L21ckaUIMU5IgsymZrrGwg/stderr"
+var (
+	_COUNTER              = &Counter{v: 0}
+	_FILE_FULLPATH_STDIN_ = fmt.Sprintf("/fsfilter-fakedir-%010d/stdin_", _COUNTER.Inc())
+	_FILE_FULLPATH_STDOUT = fmt.Sprintf("/fsfilter-fakedir-%010d/stdout", _COUNTER.Inc())
+	_FILE_FULLPATH_STDERR = fmt.Sprintf("/fsfilter-fakedir-%010d/stderr", _COUNTER.Inc())
 )
 
 type FsFilter struct {
@@ -26,7 +27,7 @@ func NewFsFilter(pid int) *FsFilter {
 	fs := &FsFilter{pid: pid, trackedFds: make(map[int]File)}
 
 	// builtin allowed files - rd-lists
-	_ = fs.AddAllowedFile(_FILE_FULLPATH_STDIN, FILE_RD)
+	_ = fs.AddAllowedFile(_FILE_FULLPATH_STDIN_, FILE_RD)
 	_ = fs.AddAllowedFile(_FILE_FULLPATH_STDOUT, FILE_RD)
 	_ = fs.AddAllowedFile(_FILE_FULLPATH_STDERR, FILE_RD)
 
@@ -35,7 +36,7 @@ func NewFsFilter(pid int) *FsFilter {
 	_ = fs.AddAllowedFile(_FILE_FULLPATH_STDERR, FILE_WR)
 
 	// builtin tracked files
-	_, _ = fs.TrackFd(unix.Stdin, _FILE_FULLPATH_STDIN, unix.AT_FDCWD)
+	_, _ = fs.TrackFd(unix.Stdin, _FILE_FULLPATH_STDIN_, unix.AT_FDCWD)
 	_, _ = fs.TrackFd(unix.Stdout, _FILE_FULLPATH_STDOUT, unix.AT_FDCWD)
 	_, _ = fs.TrackFd(unix.Stderr, _FILE_FULLPATH_STDERR, unix.AT_FDCWD)
 
@@ -120,20 +121,30 @@ func (fs *FsFilter) GetTrackdFile(fd int) (File, error) {
 	f, ok := fs.trackedFds[fd]
 	if !ok {
 		return File{}, fmt.Errorf("fd(%d) not found", fd)
-	} else {
-		return f, nil
 	}
+	return f, nil
 }
 
 func (fs *FsFilter) TrackFd(fd int, path string, dirfd int) (File, error) {
 	fullpath, err := fs.getAbs(path, dirfd)
 	if err != nil {
 		return File{}, err
-	} else {
-		var f = File{fullpath: fullpath}
-		fs.trackedFds[fd] = f
-		return f, nil
 	}
+
+	var f = File{fullpath: fullpath}
+	fs.trackedFds[fd] = f
+	return f, nil
+}
+
+func (fs *FsFilter) TrackPipeFd(fd int, perm int) (File, error) {
+	var fullpath = fs.getFakeFilePath()
+	if err := fs.AddAllowedFile(fullpath, perm); err != nil {
+		return File{}, err
+	}
+
+	var f = File{fullpath: fullpath}
+	fs.trackedFds[fd] = f
+	return f, nil
 }
 
 func (fs *FsFilter) UntrackFd(fd int) {
@@ -195,4 +206,8 @@ func (fs *FsFilter) getCwd() (string, error) {
 	} else {
 		return string(buf[:n]), nil
 	}
+}
+
+func (fs *FsFilter) getFakeFilePath() string {
+	return fmt.Sprintf("/fsfilter-fakedir-%010d/file-%010d", _COUNTER.Inc(), _COUNTER.Inc())
 }

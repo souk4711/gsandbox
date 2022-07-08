@@ -328,7 +328,7 @@ var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_EVENTFD2:          makeSyscallSignature("eventfd2", ParamTypeAny, ParamTypeAny),
 	unix.SYS_EPOLL_CREATE1:     makeSyscallSignature("epoll_create1", ParamTypeAny),
 	unix.SYS_DUP3:              makeSyscallSignature("dup3", ParamTypeFd, ParamTypeFd, ParamTypeAny),
-	unix.SYS_PIPE2:             makeSyscallSignature("pipe2", ParamTypeAny, ParamTypeAny),
+	unix.SYS_PIPE2:             makeSyscallSignature("pipe2", ParamTypePipeFd, ParamTypeAny),
 	unix.SYS_INOTIFY_INIT1:     makeSyscallSignature("inotify_init1", ParamTypeAny),
 	unix.SYS_PREADV:            makeSyscallSignature("preadv", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_PWRITEV:           makeSyscallSignature("pwritev", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),

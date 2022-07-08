@@ -78,9 +78,9 @@ func (e *Executor) HandleTracerSyscallEnterEvent_CheckSyscallAccess(pid int, cur
 func (e *Executor) HandleTracerSyscallEnterEvent_CheckFileAccess(pid int, curr *ptrace.Syscall) (continued bool) {
 	var (
 		dirfd  int    = unix.AT_FDCWD
-		path   string = "/gsandbox-invalid-path-9Qo0MIVp2fDiGKVbvdaIqw"
+		path   string = "/gsandbox-invalidpath-9Qo0MIVp2fDiGKVbvdaIqw"
 		dirfd2 int    = unix.AT_FDCWD
-		path2  string = "/gsandbox-invalid-path-9Qo0MIVp2fDiGKVbvdaIqw"
+		path2  string = "/gsandbox-invalidpath-9Qo0MIVp2fDiGKVbvdaIqw"
 		filter *fsfilter.FsFilter
 	)
 
@@ -316,6 +316,8 @@ func (e *Executor) HandleTracerSyscallEnterEvent_CheckFileAccess(pid int, curr *
 	// pass through
 	case unix.SYS_CLOSE:
 		goto PASSTHROUGH
+	case unix.SYS_PIPE2:
+		goto PASSTHROUGH
 	case unix.SYS_DUP, unix.SYS_DUP2, unix.SYS_DUP3:
 		goto PASSTHROUGH
 	case unix.SYS_FCNTL:
@@ -464,6 +466,32 @@ func (e *Executor) HandleTracerSyscallLeaveEvent_TraceFd(pid int, curr *ptrace.S
 		var fd = prev.GetArg(0).GetFd()
 		filter.UntrackFd(fd)
 		e.info(fmt.Sprintf("syscall: Leave:   => fsfilter: UNTRACK: %s", ptrace.Fd(fd)))
+
+	// pipe
+	case unix.SYS_PIPE2:
+		if err := curr.GetArg(0).Read(); err != nil {
+			err = fmt.Errorf("ptrace: %s", err.Error())
+			e.setResultWithSandboxFailure(err)
+			return
+		}
+		var pipefd = curr.GetArg(0).GetPipeFd()
+		var fd_rd = pipefd[0]
+		var fd_wr = pipefd[1]
+		if f, err := filter.TrackPipeFd(fd_rd, fsfilter.FILE_RD); err != nil {
+			err = fmt.Errorf("ptrace: %s", err.Error())
+			e.setResultWithSandboxFailure(err)
+			return false
+		} else {
+			e.info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s", ptrace.Fd(fd_rd), f.GetFullpath()))
+		}
+		if f, err := filter.TrackPipeFd(fd_wr, fsfilter.FILE_WR); err != nil {
+			err = fmt.Errorf("ptrace: %s", err.Error())
+			e.setResultWithSandboxFailure(err)
+			return false
+		} else {
+			e.info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s", ptrace.Fd(fd_wr), f.GetFullpath()))
+		}
+		e.info(fmt.Sprintf("syscall: Leave:   =>   arg0: %s", curr.GetArg(0).String()))
 
 	// dup
 	case unix.SYS_DUP, unix.SYS_DUP2, unix.SYS_DUP3:

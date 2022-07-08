@@ -17,9 +17,10 @@ const (
 	ParamTypeAny          ParamType = iota // placeholder
 	ParamTypeInt                           // int
 	ParamTypePath                          // a pointer to char* path
+	ParamTypePipeFd                        // int pipefd[2]
 	ParamTypeFd                            // int fd
-	ParamTypeFlagOpen                      // flag for open
-	ParamTypeFlagFnctlCmd                  // cmd for fnctl
+	ParamTypeFlagOpen                      // flag for #open
+	ParamTypeFlagFnctlCmd                  // cmd for #fnctl
 	// ...
 )
 
@@ -40,8 +41,9 @@ type SyscallArg struct {
 	pos     int      // position in func
 
 	// hold ANY value, available after a call to #Read
-	v_int int
-	v_str string
+	v_int       int
+	v_str       string
+	v_int_array []int
 }
 
 // Syscall func - interface Stringer
@@ -52,6 +54,9 @@ func (a *SyscallArg) String() string {
 		return fmt.Sprintf("%d", a.GetInt())
 	case ParamTypePath:
 		return fmt.Sprintf("'%s'", a.GetPath())
+	case ParamTypePipeFd:
+		var pipefd = a.GetPipeFd()
+		return fmt.Sprintf("[%d,%d]", pipefd[0], pipefd[1])
 	case ParamTypeFd:
 		return Fd(a.GetFd()).String()
 	case ParamTypeFlagOpen:
@@ -70,11 +75,17 @@ func (a *SyscallArg) Read() error {
 
 	switch paramType {
 	case ParamTypePath:
-		v, err := a.readString(regptr, unix.PathMax)
-		if err != nil {
+		if v, err := a.readString(regptr, unix.PathMax); err != nil {
 			return err
+		} else {
+			a.v_str = v
 		}
-		a.v_str = v
+	case ParamTypePipeFd:
+		if v, err := a.readIntArray(regptr, 2); err != nil {
+			return err
+		} else {
+			a.v_int_array = v
+		}
 	case
 		ParamTypeInt,
 		ParamTypeFd,
@@ -94,6 +105,11 @@ func (a *SyscallArg) GetInt() int {
 // Syscall arg - convert value to Path
 func (a *SyscallArg) GetPath() string {
 	return a.v_str
+}
+
+// Syscall arg - convert value to PipeFd
+func (a *SyscallArg) GetPipeFd() []int {
+	return a.v_int_array
 }
 
 // Syscall arg - convert value to Fd
@@ -130,6 +146,20 @@ func (a *SyscallArg) readString(addr uintptr, max int) (string, error) {
 		addr++
 	}
 	return str, nil
+}
+
+// Syscall arg - helper for read int array
+func (a *SyscallArg) readIntArray(addr uintptr, size int) ([]int, error) {
+	var buf = make([]byte, size*4)
+	if _, err := syscall.PtracePeekData(a.syscall.pid, addr, buf[:]); err != nil {
+		return nil, fmt.Errorf("PeekData: %s", err.Error())
+	}
+
+	var val = make([]int, size)
+	for i := range val {
+		val[i] = int(int32(nativeEndian.Uint32(buf[i*4 : (i+1)*4])))
+	}
+	return val, nil
 }
 
 // Syscall retval
