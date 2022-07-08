@@ -246,7 +246,7 @@ func (c *Syscall) GetRetval() *SyscallRetval {
 func GetSyscall(pid int) (*Syscall, error) {
 	var regs = syscall.PtraceRegs{}
 	if err := syscall.PtraceGetRegs(pid, &regs); err != nil {
-		return nil, fmt.Errorf("GetRegs: %s", err.Error())
+		return nil, fmt.Errorf("GetRegs: [%d] %s", pid, err.Error())
 	}
 
 	var nr = uint(regs.Orig_rax)

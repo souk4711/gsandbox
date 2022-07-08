@@ -60,11 +60,15 @@ func (t *Tracer) trace(handler TracerHandler) {
 			if wpid == t.pid {
 				handler.HandleTracerExitedEvent(ws, rusage)
 				return
+			} else {
+				continue
 			}
 		} else if ws.Signaled() {
 			if wpid == t.pid {
 				handler.HandleTracerSignaledEvent(ws, rusage)
 				return
+			} else {
+				continue
 			}
 		} else if ws.Stopped() {
 			switch signal := ws.StopSignal(); signal {
@@ -86,6 +90,10 @@ func (t *Tracer) trace(handler TracerHandler) {
 						goto TRACE_CONTINUE
 					}
 				}
+
+			// .
+			case syscall.SIGCHLD:
+				goto TRACE_CONTINUE
 			}
 		}
 
