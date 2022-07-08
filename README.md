@@ -165,10 +165,79 @@ Extra resource type:
 
 ### Ptrace
 
-Gsandbox use [ptrace] to trace every system call in order to
+Gsandbox use [ptrace] to trace every syscall in order to
 
-  * restrict syscall access using a whiltelist
-  * restrict file access using a series of rules
+  * CheckSyscallAccess - restrict syscall access using a whiltelist
+  * CheckFileAccess - restrict file access using a series of rules
+
+#### Ptrace - CheckSyscallAccess
+
+  1. Initialize a syscall whitelist.
+  2. Before a syscall invoked, check the name in the whitelist or not. Force stop the process if
+     not, otherwise continue.
+
+#### Ptrace - CheckFileAccess
+
+  1. Initialize a file access rules. Each rule represents a File with filetype (`regular file`/`directory`)
+     and permission (`readable` / `writable` / `executale`).
+  2. Before a syscall invoked, extract file-related arguments, check the argument is satisfied the
+     rule or not. Force stop the process if not, otherwise continue.
+  3. E.g. the syscall `int stat(const char *restrict pathname, struct stat *restrict statbuf);` returns information
+     about a file. Before it invoked, Gsandbox will extract the `pathaname` argument from registers and check the
+     access rules to determine the `pathname` is `readable` or not. Full permission required used below:
+
+  <details>
+  <summary>Click to expand <b>FULL PERMISSION REQUIRED ON SYSCALL</b></summary>
+
+  | syscall name     | permission required on `path`/`fd`       |
+  |------------------|------------------------------------------|
+  | read             | readable                                 |
+  | write            | writable                                 |
+  | open             | readable/writable depends on `flags`     |
+  | openat           | readable/writable depends on `flags`     |
+  | creat            | writable                                 |
+  | stat             | readble                                  |
+  | fstat            | readble                                  |
+  | lstat            | readble                                  |
+  | newfstatat       | readble                                  |
+  | statx            | readble                                  |
+  | access           | readble                                  |
+  | faccessat        | readble                                  |
+  | faccessat2       | readble                                  |
+  | rename           | writable required on `newpath`/`oldpath` |
+  | renameat         | writable required on `newpath`/`oldpath` |
+  | renameat2        | writable required on `newpath`/`oldpath` |
+  | chdir            | readble                                  |
+  | fchdir           | readble                                  |
+  | mkdir            | writable                                 |
+  | mkdirat          | writable                                 |
+  | readlink         | readable                                 |
+  | readlinkat       | readable                                 |
+  | link             | writable required on `newpath`/`oldpath` |
+  | linkat           | writable required on `newpath`/`oldpath` |
+  | symlink          | writable required on `newpath`/`oldpath` |
+  | symlinkat        | writable required on `newpath`/`oldpath` |
+  | unlink           | writable                                 |
+  | unlinkat         | writable                                 |
+  | chmod            | writable                                 |
+  | fchmod           | writable                                 |
+  | fchmodat         | writable                                 |
+  | statfs           | readable                                 |
+  | fstatfs          | readable                                 |
+  | getxattr         | readable                                 |
+  | lgetxattr        | readable                                 |
+  | fgetxattr        | readable                                 |
+  | execve           | executale                                |
+  | execveat         | executale                                |
+  | close            | none                                     |
+  | pipe             | none                                     |
+  | pipe2            | none                                     |
+  | dup              | none                                     |
+  | dup2             | none                                     |
+  | dup3             | none                                     |
+  | fcntl            | none                                     |
+  | anything else    | unchecked                                |
+  </details>
 
 ## License
 
@@ -178,3 +247,4 @@ available as open source under the terms of the [MIT License](https://opensource
 [syscall.SysProcAttr#Cloneflags]:https://pkg.go.dev/syscall#SysProcAttr
 [prlimit]:https://man7.org/linux/man-pages/man2/prlimit.2.html
 [ptrace]:https://man7.org/linux/man-pages/man2/ptrace.2.html
+[read(2)]:https://man7.org/linux/man-pages/man2/read.2.html
