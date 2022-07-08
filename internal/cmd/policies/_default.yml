@@ -377,6 +377,7 @@ syscalls:
   - waitpid
   - write
   - writev
+  - clone
 
 # file system access control
 fs:
@@ -394,6 +395,7 @@ fs:
     - /sys/
     - /usr/
     - /var/
+    - //
 
     # regular file
     - /
@@ -416,3 +418,4 @@ fs:
     - /usr/sbin/
     - /usr/local/bin/
     - /usr/local/sbin/
+    - ~/

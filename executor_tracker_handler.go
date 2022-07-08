@@ -147,12 +147,15 @@ func (e *Executor) HandleTracerSyscallEnterEvent_CheckFileAccess(pid int, curr *
 		goto CHECK_READABLE
 
 	// access
-	case unix.SYS_ACCESS, unix.SYS_FACCESSAT:
+	case unix.SYS_ACCESS, unix.SYS_FACCESSAT, unix.SYS_FACCESSAT2:
 		switch nr {
 		case unix.SYS_ACCESS:
 			dirfd = unix.AT_FDCWD
 			path = curr.GetArg(0).GetPath()
 		case unix.SYS_FACCESSAT:
+			dirfd = curr.GetArg(0).GetFd()
+			path = curr.GetArg(1).GetPath()
+		case unix.SYS_FACCESSAT2:
 			dirfd = curr.GetArg(0).GetFd()
 			path = curr.GetArg(1).GetPath()
 		}
