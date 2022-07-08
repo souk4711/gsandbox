@@ -13,8 +13,8 @@ func Trace(pid int, handler TracerHandler) {
 
 type TracerHandler interface {
 	HandleTracerPanicEvent(err error)                                                     // panic
-	HandleTracerExitedEvent(ws syscall.WaitStatus, rusage syscall.Rusage)                 // ws.Exited()
-	HandleTracerSignaledEvent(ws syscall.WaitStatus, rusage syscall.Rusage)               // ws.Signaled()
+	HandleTracerExitedEvent(pid int, ws syscall.WaitStatus, rusage syscall.Rusage)        // ws.Exited()
+	HandleTracerSignaledEvent(pid int, ws syscall.WaitStatus, rusage syscall.Rusage)      // ws.Signaled()
 	HandleTracerNewChildEvent(parentPid int, childPid int)                                // PTRACE_EVENT_CLONE
 	HandleTracerSyscallEnterEvent(pid int, curr *Syscall) (continued bool)                // when syscall enter
 	HandleTracerSyscallLeaveEvent(pid int, curr *Syscall, prev *Syscall) (continued bool) // when syscall leave
@@ -57,15 +57,15 @@ func (t *Tracer) trace(handler TracerHandler) {
 
 		// check wait status
 		if ws.Exited() {
+			handler.HandleTracerExitedEvent(wpid, ws, rusage)
 			if wpid == t.pid {
-				handler.HandleTracerExitedEvent(ws, rusage)
 				return
 			} else {
 				continue
 			}
 		} else if ws.Signaled() {
+			handler.HandleTracerSignaledEvent(wpid, ws, rusage)
 			if wpid == t.pid {
-				handler.HandleTracerSignaledEvent(ws, rusage)
 				return
 			} else {
 				continue

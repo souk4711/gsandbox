@@ -119,17 +119,15 @@ func (e *Executor) Run() {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	// logging
-	e.info(fmt.Sprintf("proc: Start: %s %s", e.Prog, strings.Join(e.Args, " ")))
-
 	// timeout
 	var cmd *exec.Cmd
 	if lim := e.limits.LimitWallClockTime; lim != nil {
-		e.info(fmt.Sprintf("setrlimit: walltime => %s", time.Duration(*lim*uint64(time.Second))))
+		e.info(fmt.Sprintf("proc: StartWithTimeout(%s): %s %s", time.Duration(*lim*uint64(time.Second)), e.Prog, strings.Join(e.Args, " ")))
 		var ctx, cancel = context.WithTimeout(context.Background(), time.Duration(*lim)*time.Second)
 		defer cancel()
 		cmd = exec.CommandContext(ctx, e.Prog, e.Args...)
 	} else {
+		e.info(fmt.Sprintf("proc: Start: %s %s", e.Prog, strings.Join(e.Args, " ")))
 		cmd = exec.Command(e.Prog, e.Args...)
 	}
 
@@ -217,6 +215,11 @@ func (e *Executor) run() {
 }
 
 func (e *Executor) setCmdRlimits(pid int) error {
+	e.traceePid = pid
+	defer func() {
+		e.traceePid = 0
+	}()
+
 	if lim := e.limits.RlimitAS; lim != nil {
 		e.info(fmt.Sprintf("setrlimit:       as => %s", humanize.IBytes(*lim)))
 		var rlim = syscall.Rlimit{Cur: *lim, Max: *lim}
@@ -356,4 +359,8 @@ func (e *Executor) setResultWithExecFailure(err error) {
 
 func (e *Executor) info(msg string) {
 	e.logger.Info(fmt.Sprintf("[%d] %s", e.traceePid, msg))
+}
+
+func (e *Executor) infoWithPid(msg string, pid int) {
+	e.logger.Info(fmt.Sprintf("[%d] %s", pid, msg))
 }

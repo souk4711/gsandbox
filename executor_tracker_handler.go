@@ -15,15 +15,22 @@ func (e *Executor) HandleTracerPanicEvent(err error) {
 	e.setResultWithSandboxFailure(err)
 }
 
-func (e *Executor) HandleTracerExitedEvent(ws syscall.WaitStatus, rusage syscall.Rusage) {
-	e.setResultWithOK(&ws, &rusage)
+func (e *Executor) HandleTracerExitedEvent(pid int, ws syscall.WaitStatus, rusage syscall.Rusage) {
+	e.infoWithPid("syscall: Event: ExitedEvent", pid)
+	if pid == e.cmd.Process.Pid {
+		e.setResultWithOK(&ws, &rusage)
+	}
 }
 
-func (e *Executor) HandleTracerSignaledEvent(ws syscall.WaitStatus, rusage syscall.Rusage) {
-	e.setResult(&ws, &rusage)
+func (e *Executor) HandleTracerSignaledEvent(pid int, ws syscall.WaitStatus, rusage syscall.Rusage) {
+	e.infoWithPid("syscall: Event: SignaledEvent", pid)
+	if pid == e.cmd.Process.Pid {
+		e.setResult(&ws, &rusage)
+	}
 }
 
 func (e *Executor) HandleTracerNewChildEvent(parentPid int, childPid int) {
+	e.infoWithPid("syscall: Event: NewChildEvent", parentPid)
 	parentFsFilter := e.traceeFsFilters[parentPid]
 	childFsFilter := fsfilter.NewFsFilterInheritFromParent(childPid, parentFsFilter)
 	e.traceeFsFilters[childPid] = childFsFilter

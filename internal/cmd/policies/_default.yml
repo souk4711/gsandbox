@@ -377,6 +377,8 @@ syscalls:
   - waitpid
   - write
   - writev
+
+  # may required by python, ruby, etc.
   - clone
 
 # file system access control
