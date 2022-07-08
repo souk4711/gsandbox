@@ -67,8 +67,8 @@ type Executor struct {
 	cmd *exec.Cmd
 
 	// tracee-related
-	traceePid      int
-	traceeFsfilter map[int]*fsfilter.FsFilter
+	traceePid       int
+	traceeFsFilters map[int]*fsfilter.FsFilter
 
 	// logger
 	logger logr.Logger
@@ -78,7 +78,7 @@ func NewExecutor(prog string, args []string) *Executor {
 	var e = Executor{
 		Prog: prog, Args: args,
 		flags: make(map[string]string), allowedSyscalls: make(map[string]struct{}),
-		traceeFsfilter: make(map[int]*fsfilter.FsFilter),
+		traceeFsFilters: make(map[int]*fsfilter.FsFilter),
 	}
 	return &e
 }
@@ -278,7 +278,7 @@ func (e *Executor) setFsFilter(pid int) error {
 		}
 	}
 
-	e.traceeFsfilter[pid] = filter
+	e.traceeFsFilters[pid] = filter
 	return nil
 }
 

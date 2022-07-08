@@ -159,6 +159,10 @@ Gsandbox use [prlimit] to set the resource limits of program. The following reso
   * RLIMIT_FSIZE - the maximum size of files that the process may create
   * RLIMIT_NOFILE - the maximum number of open file descriptors
 
+Extra resource type:
+
+  * LimitWallClockTime - wall-clock time limit
+
 ### Ptrace
 
 Gsandbox use [ptrace] to trace every system call in order to

@@ -384,26 +384,13 @@ fs:
   # readable file list
   rd-files:
     # dir
-    - /dev/
-    - /etc/
-    - /home/
-    - /lib/
-    - /lib64/
-    - /opt/
-    - /proc/
-    - /root/
-    - /sys/
-    - /usr/
-    - /var/
     - //
-
-    # regular file
-    - /
 
   # writable file list
   wr-files:
     # dir
     - ./
+    - /proc/self/
 
     # regular file
     - /dev/null
@@ -412,10 +399,10 @@ fs:
   # executable file list
   ex-files:
     # dir
+    - ~/
     - /bin/
     - /sbin/
     - /usr/bin/
     - /usr/sbin/
     - /usr/local/bin/
     - /usr/local/sbin/
-    - ~/

@@ -12,9 +12,9 @@ import (
 
 var (
 	_COUNTER              = &Counter{v: 0}
-	_FILE_FULLPATH_STDIN_ = fmt.Sprintf("/fsfilter-fakedir-%010d/stdin_", _COUNTER.Inc())
-	_FILE_FULLPATH_STDOUT = fmt.Sprintf("/fsfilter-fakedir-%010d/stdout", _COUNTER.Inc())
-	_FILE_FULLPATH_STDERR = fmt.Sprintf("/fsfilter-fakedir-%010d/stderr", _COUNTER.Inc())
+	_FILE_FULLPATH_STDIN_ = fmt.Sprintf("/fsfilter-memfs-%010d/stdin_", _COUNTER.Inc())
+	_FILE_FULLPATH_STDOUT = fmt.Sprintf("/fsfilter-memfs-%010d/stdout", _COUNTER.Inc())
+	_FILE_FULLPATH_STDERR = fmt.Sprintf("/fsfilter-memfs-%010d/stderr", _COUNTER.Inc())
 )
 
 type FsFilter struct {
@@ -136,8 +136,8 @@ func (fs *FsFilter) TrackFd(fd int, path string, dirfd int) (File, error) {
 	return f, nil
 }
 
-func (fs *FsFilter) TrackPipeFd(fd int, perm int) (File, error) {
-	var fullpath = fs.getFakeFilePath()
+func (fs *FsFilter) TrackMemFd(fd int, perm int) (File, error) {
+	var fullpath = fs.getMemFilePath()
 	switch perm {
 	case FILE_RD:
 		if err := fs.AddAllowedFile(fullpath, FILE_RD); err != nil {
@@ -218,6 +218,6 @@ func (fs *FsFilter) getCwd() (string, error) {
 	}
 }
 
-func (fs *FsFilter) getFakeFilePath() string {
-	return fmt.Sprintf("/fsfilter-fakedir-%010d/file-%010d", _COUNTER.Inc(), _COUNTER.Inc())
+func (fs *FsFilter) getMemFilePath() string {
+	return fmt.Sprintf("/fsfilter-memfs-%010d/file-%010d", _COUNTER.Inc(), _COUNTER.Inc())
 }

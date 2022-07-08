@@ -24,9 +24,9 @@ func (e *Executor) HandleTracerSignaledEvent(ws syscall.WaitStatus, rusage sysca
 }
 
 func (e *Executor) HandleTracerNewChildEvent(parentPid int, childPid int) {
-	parentFsFilter := e.traceeFsfilter[parentPid]
+	parentFsFilter := e.traceeFsFilters[parentPid]
 	childFsFilter := fsfilter.NewFsFilterInheritFromParent(childPid, parentFsFilter)
-	e.traceeFsfilter[childPid] = childFsFilter
+	e.traceeFsFilters[childPid] = childFsFilter
 }
 
 func (e *Executor) HandleTracerSyscallEnterEvent(pid int, curr *ptrace.Syscall) (continued bool) {
@@ -342,7 +342,7 @@ func (e *Executor) HandleTracerSyscallEnterEvent_CheckFileAccess(pid int, curr *
 	}
 
 CHECK_READABLE:
-	filter = e.traceeFsfilter[pid]
+	filter = e.traceeFsFilters[pid]
 	if ok, _ := filter.AllowRead(path, dirfd); !ok {
 		err := fmt.Errorf("fsfilter: ReadDisallowed: path(%s), dirfd(%d)", path, dirfd)
 		e.setResultWithViolation(err)
@@ -353,7 +353,7 @@ CHECK_READABLE:
 	}
 
 CHECK_WRITEABLE:
-	filter = e.traceeFsfilter[pid]
+	filter = e.traceeFsFilters[pid]
 	if ok, _ := filter.AllowWrite(path, dirfd); !ok {
 		err := fmt.Errorf("fsfilter: WriteDisallowed: path(%s), dirfd(%d)", path, dirfd)
 		e.setResultWithViolation(err)
@@ -364,7 +364,7 @@ CHECK_WRITEABLE:
 	}
 
 CHECK_WRITEABLE_2:
-	filter = e.traceeFsfilter[pid]
+	filter = e.traceeFsFilters[pid]
 	if ok, _ := filter.AllowWrite(path, dirfd); !ok {
 		err := fmt.Errorf("fsfilter: WriteDisallowed: path(%s), dirfd(%d), path2(%s), dirfd2(%d)", path, dirfd, path2, dirfd2)
 		e.setResultWithViolation(err)
@@ -379,7 +379,7 @@ CHECK_WRITEABLE_2:
 	}
 
 CHECK_EXECUTABLE:
-	filter = e.traceeFsfilter[pid]
+	filter = e.traceeFsFilters[pid]
 	if ok, _ := filter.AllowExecute(path, dirfd); !ok {
 		err := fmt.Errorf("fsfilter: ExecuteDisallowed: path(%s), dirfd(%d)", path, dirfd)
 		e.setResultWithViolation(err)
@@ -437,7 +437,7 @@ func (e *Executor) HandleTracerSyscallLeaveEvent_TraceFd(pid int, curr *ptrace.S
 		return true
 	}
 
-	var filter = e.traceeFsfilter[pid]
+	var filter = e.traceeFsFilters[pid]
 	var nr = curr.GetNR()
 	switch nr {
 	// open
@@ -480,14 +480,14 @@ func (e *Executor) HandleTracerSyscallLeaveEvent_TraceFd(pid int, curr *ptrace.S
 		var pipefd = curr.GetArg(0).GetPipeFd()
 		var fd_rd = pipefd[0]
 		var fd_wr = pipefd[1]
-		if f, err := filter.TrackPipeFd(fd_rd, fsfilter.FILE_RD); err != nil {
+		if f, err := filter.TrackMemFd(fd_rd, fsfilter.FILE_RD); err != nil {
 			err = fmt.Errorf("ptrace: %s", err.Error())
 			e.setResultWithSandboxFailure(err)
 			return false
 		} else {
 			e.info(fmt.Sprintf("syscall: Leave:   => fsfilter: TRACK: %s <=> %s", ptrace.Fd(fd_rd), f.GetFullpath()))
 		}
-		if f, err := filter.TrackPipeFd(fd_wr, fsfilter.FILE_WR); err != nil {
+		if f, err := filter.TrackMemFd(fd_wr, fsfilter.FILE_WR); err != nil {
 			err = fmt.Errorf("ptrace: %s", err.Error())
 			e.setResultWithSandboxFailure(err)
 			return false

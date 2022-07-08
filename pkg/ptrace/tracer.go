@@ -91,7 +91,7 @@ func (t *Tracer) trace(handler TracerHandler) {
 					}
 				}
 
-			// .
+			// child process exited
 			case syscall.SIGCHLD:
 				goto TRACE_CONTINUE
 			}
