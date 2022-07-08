@@ -57,7 +57,7 @@ var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_READV:                  makeSyscallSignature("readv", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_WRITEV:                 makeSyscallSignature("writev", ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_ACCESS:                 makeSyscallSignature("access", ParamTypePath, ParamTypeAny),
-	unix.SYS_PIPE:                   makeSyscallSignature("pipe", ParamTypeAny),
+	unix.SYS_PIPE:                   makeSyscallSignature("pipe", ParamTypePipeFd),
 	unix.SYS_SELECT:                 makeSyscallSignature("select", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_SCHED_YIELD:            makeSyscallSignature("sched_yield"),
 	unix.SYS_MREMAP:                 makeSyscallSignature("mremap", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),

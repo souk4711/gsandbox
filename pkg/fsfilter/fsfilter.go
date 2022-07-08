@@ -138,8 +138,18 @@ func (fs *FsFilter) TrackFd(fd int, path string, dirfd int) (File, error) {
 
 func (fs *FsFilter) TrackPipeFd(fd int, perm int) (File, error) {
 	var fullpath = fs.getFakeFilePath()
-	if err := fs.AddAllowedFile(fullpath, perm); err != nil {
-		return File{}, err
+	switch perm {
+	case FILE_RD:
+		if err := fs.AddAllowedFile(fullpath, FILE_RD); err != nil {
+			return File{}, err
+		}
+	case FILE_WR:
+		if err := fs.AddAllowedFile(fullpath, FILE_RD); err != nil {
+			return File{}, err
+		}
+		if err := fs.AddAllowedFile(fullpath, FILE_WR); err != nil {
+			return File{}, err
+		}
 	}
 
 	var f = File{fullpath: fullpath}

@@ -316,7 +316,7 @@ func (e *Executor) HandleTracerSyscallEnterEvent_CheckFileAccess(pid int, curr *
 	// pass through
 	case unix.SYS_CLOSE:
 		goto PASSTHROUGH
-	case unix.SYS_PIPE2:
+	case unix.SYS_PIPE, unix.SYS_PIPE2:
 		goto PASSTHROUGH
 	case unix.SYS_DUP, unix.SYS_DUP2, unix.SYS_DUP3:
 		goto PASSTHROUGH
@@ -468,7 +468,7 @@ func (e *Executor) HandleTracerSyscallLeaveEvent_TraceFd(pid int, curr *ptrace.S
 		e.info(fmt.Sprintf("syscall: Leave:   => fsfilter: UNTRACK: %s", ptrace.Fd(fd)))
 
 	// pipe
-	case unix.SYS_PIPE2:
+	case unix.SYS_PIPE, unix.SYS_PIPE2:
 		if err := curr.GetArg(0).Read(); err != nil {
 			err = fmt.Errorf("ptrace: %s", err.Error())
 			e.setResultWithSandboxFailure(err)
