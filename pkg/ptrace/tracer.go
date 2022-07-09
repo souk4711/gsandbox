@@ -48,14 +48,7 @@ func (t *Tracer) trace(handler TracerHandler) {
 			return
 		}
 
-		// reterive tracee info
-		if value, ok := t.tracees[wpid]; ok {
-			currTracee = value
-		} else {
-			currTracee = t.addTracee(wpid)
-		}
-
-		// check wait status
+		// check wait status - WIFEXITED
 		if ws.Exited() {
 			handler.HandleTracerExitedEvent(wpid, ws, rusage)
 			if wpid == t.pid {
@@ -63,24 +56,44 @@ func (t *Tracer) trace(handler TracerHandler) {
 			} else {
 				continue
 			}
-		} else if ws.Signaled() {
+		}
+
+		// check wait status - WIFSIGNALED
+		if ws.Signaled() {
 			handler.HandleTracerSignaledEvent(wpid, ws, rusage)
 			if wpid == t.pid {
 				return
 			} else {
 				continue
 			}
-		} else if ws.Stopped() {
+		}
+
+		// check wait status - WIFSTOPPED
+		if ws.Stopped() { // ptrace-stop
 			switch signal := ws.StopSignal(); signal {
-			// syscall.PTRACE_O_TRACESYSGOOD
+			// syscall-stops
+			//
+			// Using the PTRACE_O_TRACESYSGOOD option is the recommended method
+			// to distinguish syscall-stops from other kinds of ptrace-stops.
 			case syscall.SIGTRAP | 0x80:
 				break
 
-			// syscall.PTRACE_O_TRACECLONE
-			// syscall.PTRACE_O_TRACEFORK
-			// syscall.PTRACE_O_TRACEVFORK
+			// group-stop
+			case syscall.SIGSTOP:
+				break
+
+			// group-stop
+			case syscall.SIGTSTP, syscall.SIGTTOU, syscall.SIGTTIN:
+				break
+
+			// PTRACE_EVENT stops or signal-delivery-stop
 			case syscall.SIGTRAP:
 				switch tc := ws.TrapCause(); tc {
+				// PTRACE_EVENT stops
+				//
+				// syscall.PTRACE_O_TRACECLONE
+				// syscall.PTRACE_O_TRACEFORK
+				// syscall.PTRACE_O_TRACEVFORK
 				case syscall.PTRACE_EVENT_CLONE, syscall.PTRACE_EVENT_FORK, syscall.PTRACE_EVENT_VFORK:
 					if childPid, err := syscall.PtraceGetEventMsg(wpid); err != nil {
 						handler.HandleTracerPanicEvent(err)
@@ -89,12 +102,26 @@ func (t *Tracer) trace(handler TracerHandler) {
 						handler.HandleTracerNewChildEvent(wpid, int(childPid))
 						goto TRACE_CONTINUE
 					}
+					// signal-delivery-stop
+				default:
+					break
 				}
 
-			// child process exited
+			// signal-delivery-stop - child process exited
 			case syscall.SIGCHLD:
 				goto TRACE_CONTINUE
+
+			// signal-delivery-stop
+			default:
+				break
 			}
+		}
+
+		// reterive tracee info
+		if value, ok := t.tracees[wpid]; ok {
+			currTracee = value
+		} else {
+			currTracee = t.addTracee(wpid)
 		}
 
 		// reterive syscall info
