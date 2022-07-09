@@ -23,7 +23,7 @@ func (e *Executor) HandleTracerExitedEvent(pid int, ws syscall.WaitStatus, rusag
 }
 
 func (e *Executor) HandleTracerSignaledEvent(pid int, ws syscall.WaitStatus, rusage syscall.Rusage) {
-	e.infoWithPid("syscall: Event: SignaledEvent", pid)
+	e.infoWithPid(fmt.Sprintf("syscall: Event: SignaledEvent(%s)", ws.Signal()), pid)
 	if pid == e.cmd.Process.Pid {
 		e.setResult(&ws, &rusage)
 	}
