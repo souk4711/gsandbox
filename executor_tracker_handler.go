@@ -30,7 +30,7 @@ func (e *Executor) HandleTracerSignaledEvent(pid int, ws syscall.WaitStatus, rus
 }
 
 func (e *Executor) HandleTracerNewChildEvent(parentPid int, childPid int) {
-	e.infoWithPid("syscall: Event: NewChildEvent", parentPid)
+	e.infoWithPid(fmt.Sprintf("syscall: Event: NewChildEvent(%d)", childPid), parentPid)
 	parentFsFilter := e.traceeFsFilters[parentPid]
 	childFsFilter := fsfilter.NewFsFilterInheritFromParent(childPid, parentFsFilter)
 	e.traceeFsFilters[childPid] = childFsFilter
@@ -407,7 +407,7 @@ func (e *Executor) HandleTracerSyscallLeaveEvent(pid int, curr *ptrace.Syscall, 
 	}()
 
 	// special case
-	if curr.GetNR() == unix.SYS_EXIT_GROUP {
+	if curr.GetNR() == unix.SYS_EXIT || curr.GetNR() == unix.SYS_EXIT_GROUP {
 		e.info("syscall: Leave:   => retval: ?")
 		return true
 	}

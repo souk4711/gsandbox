@@ -95,7 +95,7 @@ var syscallTable = map[uint]SyscallSignature{
 	unix.SYS_FORK:                   makeSyscallSignature("fork"),
 	unix.SYS_VFORK:                  makeSyscallSignature("vfork"),
 	unix.SYS_EXECVE:                 makeSyscallSignature("execve", ParamTypePath, ParamTypeAny, ParamTypeAny),
-	unix.SYS_EXIT:                   makeSyscallSignature("exit", ParamTypeAny),
+	unix.SYS_EXIT:                   makeSyscallSignature("exit", ParamTypeInt),
 	unix.SYS_WAIT4:                  makeSyscallSignature("wait4", ParamTypeAny, ParamTypeAny, ParamTypeAny, ParamTypeAny),
 	unix.SYS_KILL:                   makeSyscallSignature("kill", ParamTypeAny, ParamTypeAny),
 	unix.SYS_UNAME:                  makeSyscallSignature("uname", ParamTypeAny),
