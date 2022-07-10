@@ -114,7 +114,7 @@ func (t *Tracer) trace(handler TracerHandler) {
 				switch curr.GetNR() {
 				case unix.SYS_EXECVE, // an additional notification event of `exec` in child?
 					unix.SYS_CLONE: // an additional notification event of `clone` in child?
-					if err := curr.GetRetval().Read(); err != nil {
+					if err := curr.ReadRetval(); err != nil {
 						handler.HandleTracerLogging(wpid, err.Error())
 						handler.HandleTracerPanicEvent(err)
 						return
@@ -173,7 +173,7 @@ func (t *Tracer) trace(handler TracerHandler) {
 			msg := fmt.Sprintf("tracee %d started with a SIGSTOP", wpid)
 			handler.HandleTracerLogging(wpid, msg)
 
-		// ?
+		// .
 		case syscall.SIGCHLD:
 			msg := fmt.Sprintf("tracee %d receives child exited signal", wpid)
 			handler.HandleTracerLogging(wpid, msg)

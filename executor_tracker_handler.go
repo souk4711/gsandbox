@@ -45,12 +45,10 @@ func (e *Executor) HandleTracerSyscallEnterEvent(pid int, curr *ptrace.Syscall) 
 	}()
 
 	// prepare data from regs
-	for _, arg := range curr.GetArgs() {
-		if err := arg.Read(); err != nil {
-			err = fmt.Errorf("ptrace: %s", err.Error())
-			e.setResultWithSandboxFailure(err)
-			return false
-		}
+	if err := curr.ReadArgs(); err != nil {
+		err = fmt.Errorf("ptrace: %s", err.Error())
+		e.setResultWithSandboxFailure(err)
+		return false
 	}
 
 	// logging
@@ -415,13 +413,13 @@ func (e *Executor) HandleTracerSyscallLeaveEvent(pid int, curr *ptrace.Syscall, 
 	}
 
 	// prepare data from regs
-	var retval = curr.GetRetval()
-	if err := retval.Read(); err != nil {
+	if err := curr.ReadRetval(); err != nil {
 		e.setResultWithSandboxFailure(fmt.Errorf("ptrace: %s", err.Error()))
 		return false
 	}
 
 	// ENOSYS - which is put into RAX as a default return value by the kernel's syscall entry code
+	var retval = curr.GetRetval()
 	if retval.HasError_ENOSYS() {
 		e.info(fmt.Sprintf("syscall: Leave:   => retval: %s", retval))
 		e.setResultWithSandboxFailure(fmt.Errorf("ptrace: ENOSYS: %s(...) = %s", curr.GetName(), syscall.ENOSYS))
@@ -481,7 +479,7 @@ func (e *Executor) HandleTracerSyscallLeaveEvent_TraceFd(pid int, curr *ptrace.S
 
 	// pipe
 	case unix.SYS_PIPE, unix.SYS_PIPE2:
-		if err := curr.GetArg(0).Read(); err != nil {
+		if err := curr.ReadArgs(); err != nil {
 			err = fmt.Errorf("ptrace: %s", err.Error())
 			e.setResultWithSandboxFailure(err)
 			return

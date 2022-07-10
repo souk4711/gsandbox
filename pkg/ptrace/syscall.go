@@ -40,7 +40,7 @@ type SyscallArg struct {
 	syscall *Syscall // pointer to syscall func
 	pos     int      // position in func
 
-	// hold ANY value, available after a call to #Read
+	// hold ANY value, available after a call to #read
 	v_int       int
 	v_str       string
 	v_int_array []int
@@ -66,35 +66,6 @@ func (a *SyscallArg) String() string {
 	default:
 		return "<any>"
 	}
-}
-
-// Syscall arg - read value from register
-func (a *SyscallArg) Read() error {
-	var paramType = a.syscall.signature.params[a.pos]
-	var regptr = a.syscall.getArgReg(a.pos)
-
-	switch paramType {
-	case ParamTypePath:
-		if v, err := a.readString(regptr, unix.PathMax); err != nil {
-			return err
-		} else {
-			a.v_str = v
-		}
-	case ParamTypePipeFd:
-		if v, err := a.readIntArray(regptr, 2); err != nil {
-			return err
-		} else {
-			a.v_int_array = v
-		}
-	case
-		ParamTypeInt,
-		ParamTypeFd,
-		ParamTypeFlagOpen,
-		ParamTypeFlagFnctlCmd:
-		a.v_int = int(int32(regptr))
-	}
-
-	return nil
 }
 
 // Syscall arg - convert value to int
@@ -125,6 +96,35 @@ func (a *SyscallArg) GetFlag() int {
 // Syscall arg - check param type
 func (a *SyscallArg) IsParamType(t ParamType) bool {
 	return a.syscall.signature.params[a.pos] == t
+}
+
+// Syscall arg - read value from register
+func (a *SyscallArg) read() error {
+	var paramType = a.syscall.signature.params[a.pos]
+	var regptr = a.syscall.getArgReg(a.pos)
+
+	switch paramType {
+	case ParamTypePath:
+		if v, err := a.readString(regptr, unix.PathMax); err != nil {
+			return err
+		} else {
+			a.v_str = v
+		}
+	case ParamTypePipeFd:
+		if v, err := a.readIntArray(regptr, 2); err != nil {
+			return err
+		} else {
+			a.v_int_array = v
+		}
+	case
+		ParamTypeInt,
+		ParamTypeFd,
+		ParamTypeFlagOpen,
+		ParamTypeFlagFnctlCmd:
+		a.v_int = int(int32(regptr))
+	}
+
+	return nil
 }
 
 // Syscall arg - helper for read null-terminated string
@@ -178,14 +178,6 @@ func (r *SyscallRetval) String() string {
 	}
 }
 
-// Syscall retval - read value from register
-func (r *SyscallRetval) Read() error {
-	if r.value = r.syscall.getRetval(); r.value < 0 {
-		r.errno = syscall.Errno(-r.value)
-	}
-	return nil
-}
-
 // Syscall retval - attr reader for value
 func (r *SyscallRetval) GetValue() int {
 	return r.value
@@ -204,6 +196,14 @@ func (r *SyscallRetval) HasError() bool {
 // Syscall retval - check errno ENOSYS
 func (r *SyscallRetval) HasError_ENOSYS() bool {
 	return r.value == -0x26
+}
+
+// Syscall retval - read value from register
+func (r *SyscallRetval) read() error {
+	if r.value = r.syscall.getRetval(); r.value < 0 {
+		r.errno = syscall.Errno(-r.value)
+	}
+	return nil
 }
 
 // Syscall func
@@ -240,6 +240,21 @@ func (c *Syscall) GetArg(pos int) *SyscallArg {
 // Syscall func - attr reader for retval
 func (c *Syscall) GetRetval() *SyscallRetval {
 	return c.retval
+}
+
+// Syscall func - read all args value from register
+func (c *Syscall) ReadArgs() error {
+	for _, arg := range c.args {
+		if err := arg.read(); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Syscall func - read retval value from register
+func (c *Syscall) ReadRetval() error {
+	return c.retval.read()
 }
 
 //
