@@ -369,7 +369,7 @@ func (e *Executor) setResultWithExecFailure(err error) {
 }
 
 func (e *Executor) info(msg string) {
-	e.logger.Info(fmt.Sprintf("[%d] %s", e.traceePid, msg))
+	e.infoWithPid(msg, e.traceePid)
 }
 
 func (e *Executor) infoWithPid(msg string, pid int) {

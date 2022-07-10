@@ -6,32 +6,34 @@ import (
 	"strings"
 	"syscall"
 
+	"golang.org/x/sys/unix"
+
 	"github.com/souk4711/gsandbox/pkg/fsfilter"
 	"github.com/souk4711/gsandbox/pkg/ptrace"
-	"golang.org/x/sys/unix"
 )
+
+func (e *Executor) HandleTracerLogging(pid int, msg string) {
+	e.infoWithPid("tracer: "+msg, pid)
+}
 
 func (e *Executor) HandleTracerPanicEvent(err error) {
 	e.setResultWithSandboxFailure(err)
 }
 
 func (e *Executor) HandleTracerExitedEvent(pid int, ws syscall.WaitStatus, rusage syscall.Rusage) {
-	e.infoWithPid("syscall: Event: ExitedEvent", pid)
 	if pid == e.cmd.Process.Pid {
 		e.setResultWithOK(&ws, &rusage)
 	}
 }
 
 func (e *Executor) HandleTracerSignaledEvent(pid int, ws syscall.WaitStatus, rusage syscall.Rusage) {
-	e.infoWithPid(fmt.Sprintf("syscall: Event: SignaledEvent(%s)", ws.Signal()), pid)
 	if pid == e.cmd.Process.Pid {
 		e.setResult(&ws, &rusage)
 	}
 }
 
-func (e *Executor) HandleTracerNewChildEvent(parentPid int, childPid int) {
-	e.infoWithPid(fmt.Sprintf("syscall: Event: NewChildEvent(%d)", childPid), parentPid)
-	parentFsFilter := e.traceeFsFilters[parentPid]
+func (e *Executor) HandleTracerNewChildEvent(pid int, childPid int) {
+	parentFsFilter := e.traceeFsFilters[pid]
 	childFsFilter := fsfilter.NewFsFilterInheritFromParent(childPid, parentFsFilter)
 	e.traceeFsFilters[childPid] = childFsFilter
 }
