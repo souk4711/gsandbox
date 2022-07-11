@@ -401,7 +401,6 @@ fs:
   # executable file list
   ex-files:
     # dir
-    - ~/
     - /bin/
     - /sbin/
     - /usr/bin/
