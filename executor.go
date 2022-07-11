@@ -37,6 +37,9 @@ type Executor struct {
 	// Env specifies the environment of the process, plz see os/exec.Cmd#Env
 	Env []string
 
+	// Dir specifies the working directory of the process, plz see os/exec.Cmd#Dir
+	Dir string
+
 	// Stdin specifies the process's standard input, plz see os/exec.Cmd#Stdin
 	Stdin io.Reader
 
@@ -136,6 +139,7 @@ func (e *Executor) Run() {
 
 	// env, stdin, stdout, stderr
 	cmd.Env = e.Env
+	cmd.Dir = e.Dir
 	cmd.Stdin = e.Stdin
 	cmd.Stdout = e.Stdout
 	cmd.Stderr = e.Stderr

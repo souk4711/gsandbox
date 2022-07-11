@@ -45,6 +45,11 @@ func (s *Sandbox) NewExecutor(prog string, args []string) *Executor {
 		executor.Env = make([]string, 0)
 	}
 
+	// work-dir
+	if policy.WorkingDirectory != "" {
+		executor.Dir = policy.WorkingDirectory
+	}
+
 	// set flags
 	if policy.ShareNetwork == ENABLED {
 		executor.SetFlag(FLAG_SHARE_NETWORK, ENABLED)

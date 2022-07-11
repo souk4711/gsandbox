@@ -20,10 +20,11 @@ var (
 )
 
 func newRunCommand() *cobra.Command {
-	var verbose bool
-	var policy string
 	var policyFilePath string
 	var reportFilePath string
+	var verbose bool
+	var workDir string
+	var policy string
 
 	var runCommand = &cobra.Command{
 		Use:   "run [flags] -- PROGRAM [ARG...]",
@@ -64,8 +65,13 @@ func newRunCommand() *cobra.Command {
 				}
 			}
 
-			// run
+			// Flag: work-dir
 			var executor = sandbox.NewExecutor(args[0], args[1:])
+			if workDir != "" {
+				executor.Dir = workDir
+			}
+
+			// run
 			executor.Stdout = os.Stdout
 			executor.Stderr = os.Stderr
 			executor.Run()
@@ -81,6 +87,7 @@ func newRunCommand() *cobra.Command {
 	runCommand.Flags().StringVar(&policyFilePath, "policy-file", "", "use the specified policy configuration file")
 	runCommand.Flags().StringVar(&reportFilePath, "report-file", "", "generate a JSON-formatted report at the specified location")
 	runCommand.Flags().BoolVar(&verbose, "verbose", false, "turn on verbose mode")
+	runCommand.Flags().StringVar(&workDir, "work-dir", "", "run PROGRAM under the specified directory")
 
 	runCommand.Flags().StringVar(&policy, "policy", "_default", "use the specified policy")
 	_ = runCommand.Flags().MarkHidden("policy")

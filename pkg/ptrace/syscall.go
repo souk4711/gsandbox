@@ -165,8 +165,8 @@ func (a *SyscallArg) readIntArray(addr uintptr, size int) ([]int, error) {
 // Syscall retval
 type SyscallRetval struct {
 	syscall *Syscall      // pointer to syscall func
-	value   int           // hold value, available after a call to #Read
-	errno   syscall.Errno // errno, available after a call to #Read
+	value   int           // hold value, available after a call to #read
+	errno   syscall.Errno // errno, available after a call to #read
 }
 
 // Syscall retval - interface Stringer
