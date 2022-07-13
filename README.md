@@ -2,6 +2,8 @@
 
 A sandbox for Linux/amd64 which can be used to run untrusted programs.
 
+**NOTE: Still early and not production ready.**
+
 ## Usage
 
 ### Go Module
